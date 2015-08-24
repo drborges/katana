@@ -83,18 +83,17 @@ func (injector *Injector) Clone() *Injector {
 	return newInjector
 }
 
-func (injector *Injector) ProvideNew(i interface{}, p Provider) *Injector {
-	t := reflect.TypeOf(i)
-	if _, registered := injector.dependencies[t]; registered {
-		// TODO extract to an err type
-		panic(fmt.Sprintf("Dependency %v already registered", i))
+func (injector *Injector) ProvideNew(dep interface{}, p Provider) *Injector {
+	typ := reflect.TypeOf(dep)
+	if _, registered := injector.dependencies[typ]; registered {
+		panic(ErrProviderAlreadyRegistered{typ})
 	}
 
 	if err := ValidateProvider(p); err != nil {
 		panic(err)
 	}
 
-	injector.dependencies[t] = &Dependency{
+	injector.dependencies[typ] = &Dependency{
 		Type:     TypeNewInstance,
 		Provider: p,
 	}
@@ -102,17 +101,17 @@ func (injector *Injector) ProvideNew(i interface{}, p Provider) *Injector {
 	return injector
 }
 
-func (injector *Injector) ProvideSingleton(i interface{}, p Provider) *Injector {
-	t := reflect.TypeOf(i)
-	if _, registered := injector.dependencies[t]; registered {
-		panic(fmt.Sprintf("Dependency %v already registered", i))
+func (injector *Injector) ProvideSingleton(dep interface{}, p Provider) *Injector {
+	typ := reflect.TypeOf(dep)
+	if _, registered := injector.dependencies[typ]; registered {
+		panic(ErrProviderAlreadyRegistered{typ})
 	}
 
 	if err := ValidateProvider(p); err != nil {
 		panic(err)
 	}
 
-	injector.dependencies[t] = &Dependency{
+	injector.dependencies[typ] = &Dependency{
 		Type:     TypeSingleton,
 		Provider: p,
 	}
@@ -259,4 +258,12 @@ type ErrInvalidProvider struct {
 
 func (err ErrInvalidProvider) Error() string {
 	return fmt.Sprintf("Invalid provider function: %v", err.Type.String())
+}
+
+type ErrProviderAlreadyRegistered struct {
+	Type reflect.Type
+}
+
+func (err ErrProviderAlreadyRegistered) Error() string {
+	return fmt.Sprintf("Provider for %v already registered", err.Type.String())
 }

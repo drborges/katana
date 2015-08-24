@@ -4,8 +4,8 @@ import (
 	"github.com/drborges/katana"
 	"github.com/smartystreets/assertions/should"
 	. "github.com/smartystreets/goconvey/convey"
-	"testing"
 	"reflect"
+	"testing"
 )
 
 // @katana.New
@@ -180,6 +180,26 @@ func TestInvalidProviderFunction(t *testing.T) {
 
 		Convey("Then it fails with an invalid provider error", func() {
 			So(invalidProvider, should.Panic)
+		})
+	})
+}
+
+func TestProviderAlreadyRegistered(t *testing.T) {
+	Convey("Given I have a provider registered for a given dependency", t, func() {
+		injector := katana.New().ProvideNew(&DependencyC{}, func() *DependencyC {
+			return &DependencyC{}
+		})
+
+		Convey("When I register another provider for that same dependency type", func() {
+			alreadyRegisteredProvider := func() {
+				injector.ProvideNew(&DependencyC{}, func() *DependencyC {
+					return &DependencyC{}
+				})
+			}
+
+			Convey("Then it fails with an already registered provider", func() {
+				So(alreadyRegisteredProvider, should.Panic)
+			})
 		})
 	})
 }
