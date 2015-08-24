@@ -160,34 +160,26 @@ func TestKatanaDetectsCyclicDependencies(t *testing.T) {
 }
 
 func TestInvalidProviderFunction(t *testing.T) {
+	// TODO write test case to catch whether the error is properly built
+	Convey("Given I have a provider function with no return value for a given dependency", t, func() {
+		invalidProvider := func() {
+			katana.New().ProvideNew(&DependencyC{}, func() {})
+		}
 
-	Convey("Given I a provider function with no return value for a given dependency", t, func() {
-		injector := katana.New().ProvideNew(&DependencyC{}, func() {})
-
-		Convey("When I resolve the dependency", func() {
-			var dep *DependencyC
-			err := injector.Resolve(&dep)
-
-			Convey("Then it fails with an invalid provider error", func() {
-				So(err.Error(), should.Resemble, katana.ErrInvalidProvider{reflect.TypeOf(func() {})}.Error())
-			})
+		Convey("Then it fails with an invalid provider error", func() {
+			So(invalidProvider, should.Panic)
 		})
 	})
 
-	Convey("Given I a provider function with multiple return values for a given dependency", t, func() {
-		injector := katana.New().ProvideNew(&DependencyC{}, func() (*DependencyC, error) {
-			return nil, nil
-		})
-
-		Convey("When I resolve the dependency", func() {
-			var dep *DependencyC
-			err := injector.Resolve(&dep)
-
-			Convey("Then it fails with an invalid provider error", func() {
-				So(err.Error(), should.Resemble, katana.ErrInvalidProvider{reflect.TypeOf(func() (*DependencyC, error) {
-					return nil, nil
-				})}.Error())
+	Convey("Given I have a provider function with multiple return values for a given dependency", t, func() {
+		invalidProvider := func() {
+			katana.New().ProvideNew(&DependencyC{}, func() (*DependencyC, error) {
+				return nil, nil
 			})
+		}
+
+		Convey("Then it fails with an invalid provider error", func() {
+			So(invalidProvider, should.Panic)
 		})
 	})
 }

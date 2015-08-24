@@ -2,7 +2,6 @@ package katana
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"strings"
 )
@@ -16,6 +15,20 @@ type InstanceType string
 type Instance interface{}
 type Provider interface{}
 type Callable func() []Instance
+
+func ValidateProvider(provider Provider) error {
+	typ := reflect.TypeOf(provider)
+
+	if typ.Kind() != reflect.Func {
+		return ErrNoSuchCallable{typ}
+	}
+
+	if typ.NumOut() != 1 {
+		return ErrInvalidProvider{typ}
+	}
+
+	return nil
+}
 
 type Dependency struct {
 	Type             InstanceType
@@ -73,7 +86,12 @@ func (injector *Injector) Clone() *Injector {
 func (injector *Injector) ProvideNew(i interface{}, p Provider) *Injector {
 	t := reflect.TypeOf(i)
 	if _, registered := injector.dependencies[t]; registered {
-		log.Fatalf("Dependency %v already registered", i)
+		// TODO extract to an err type
+		panic(fmt.Sprintf("Dependency %v already registered", i))
+	}
+
+	if err := ValidateProvider(p); err != nil {
+		panic(err)
 	}
 
 	injector.dependencies[t] = &Dependency{
@@ -87,7 +105,11 @@ func (injector *Injector) ProvideNew(i interface{}, p Provider) *Injector {
 func (injector *Injector) ProvideSingleton(i interface{}, p Provider) *Injector {
 	t := reflect.TypeOf(i)
 	if _, registered := injector.dependencies[t]; registered {
-		log.Fatalf("Dependency %v already registered", i)
+		panic(fmt.Sprintf("Dependency %v already registered", i))
+	}
+
+	if err := ValidateProvider(p); err != nil {
+		panic(err)
 	}
 
 	injector.dependencies[t] = &Dependency{
