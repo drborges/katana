@@ -97,7 +97,7 @@ func (injector *Injector) ProvideSingleton(i interface{}, p Provider) *Injector 
 	return injector
 }
 
-func (injector *Injector) ProvideValues(values ...interface{}) *Injector {
+func (injector *Injector) ProvideValue(values ...interface{}) *Injector {
 	for _, value := range values {
 		injector.ProvideSingleton(value, func(v interface{}) Provider {
 			return func(*Injector) (Instance, error) { return v, nil }

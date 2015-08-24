@@ -50,7 +50,7 @@ func TestKatanaProvideValues(t *testing.T) {
 		cache := &Cache{}
 		req := Request{}
 
-		injector := katana.New().ProvideValues(cache, req)
+		injector := katana.New().ProvideValue(cache, req)
 
 		Convey("When I resolve instances of the provided values", func() {
 			var cache1, cache2 *Cache
@@ -125,7 +125,7 @@ func TestKatanaResolvesTransitiveDependencies(t *testing.T) {
 			return &DependencyB{dep}, nil
 		})
 
-		injector.ProvideValues(&Dependency{})
+		injector.ProvideValue(&Dependency{})
 
 		Convey("When I resolve the root dep", func() {
 			var depA *DependencyA
