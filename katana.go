@@ -1,6 +1,7 @@
 package katana
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -15,11 +16,14 @@ var (
 type InstanceType string
 type Instance interface{}
 type Callable func() []Instance
-type Provider func(*Injector) (Instance, error)
+
+// must be callable
+type Provider interface{}
 
 type Dependency struct {
-	Type     InstanceType
-	Provider Provider
+	Type        InstanceType
+	Provider    Provider
+	NewInstance Callable
 }
 
 type Trace []string
@@ -100,7 +104,7 @@ func (injector *Injector) ProvideSingleton(i interface{}, p Provider) *Injector 
 func (injector *Injector) ProvideValue(values ...interface{}) *Injector {
 	for _, value := range values {
 		injector.ProvideSingleton(value, func(v interface{}) Provider {
-			return func(*Injector) (Instance, error) { return v, nil }
+			return func() Instance { return v }
 		}(value))
 	}
 	return injector
@@ -136,12 +140,22 @@ func (injector *Injector) Resolve(items ...interface{}) error {
 		}
 
 		// Requests a new instance of the dependency from the provider
-		inst, err := dep.Provider(injector)
+		if dep.NewInstance == nil {
+			injectedProvider, err := injector.Inject(dep.Provider)
+			if err != nil {
+				return err
+			}
+			dep.NewInstance = injectedProvider
+		}
+
+		ret := dep.NewInstance()
 		injector.trace.Reset()
 
-		if err != nil {
-			return err
+		if len(ret) != 1 {
+			return errors.New("Provider did not returned any instance")
 		}
+
+		inst := ret[0]
 
 		// Resolves the dependency with the new instance
 		val.Elem().Set(reflect.ValueOf(inst))

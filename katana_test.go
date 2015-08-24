@@ -73,8 +73,8 @@ func TestKatanaProvideValues(t *testing.T) {
 
 func TestKatanaProvideNewInstance(t *testing.T) {
 	Convey("Given I have an instance of katana injector with a new instance provider of a dependency", t, func() {
-		injector := katana.New().ProvideNew(&Dependency{}, func(injector *katana.Injector) (katana.Instance, error) {
-			return &Dependency{}, nil
+		injector := katana.New().ProvideNew(&Dependency{}, func() *Dependency {
+			return &Dependency{}
 		})
 
 		Convey("When I resolve multiple instances of the provided dependency", func() {
@@ -91,8 +91,8 @@ func TestKatanaProvideNewInstance(t *testing.T) {
 
 func TestKatanaProvideSingletonInstance(t *testing.T) {
 	Convey("Given I have an instance of katana injector with a singleton dependency provider", t, func() {
-		injector := katana.New().ProvideSingleton(&Dependency{}, func(injector *katana.Injector) (katana.Instance, error) {
-			return &Dependency{}, nil
+		injector := katana.New().ProvideSingleton(&Dependency{}, func() *Dependency {
+			return &Dependency{}
 		})
 
 		Convey("When I resolve multiple instances of the provided dependency", func() {
@@ -109,20 +109,12 @@ func TestKatanaProvideSingletonInstance(t *testing.T) {
 
 func TestKatanaResolvesTransitiveDependencies(t *testing.T) {
 	Convey("Given I have transitive dependencies", t, func() {
-		injector := katana.New().ProvideNew(&DependencyA{}, func(injector *katana.Injector) (katana.Instance, error) {
-			var dep *DependencyB
-			if err := injector.Resolve(&dep); err != nil {
-				return nil, err
-			}
-			return &DependencyA{dep}, nil
+		injector := katana.New().ProvideNew(&DependencyA{}, func(dep *DependencyB) *DependencyA {
+			return &DependencyA{dep}
 		})
 
-		injector.ProvideNew(&DependencyB{}, func(injector *katana.Injector) (katana.Instance, error) {
-			var dep *Dependency
-			if err := injector.Resolve(&dep); err != nil {
-				return nil, err
-			}
-			return &DependencyB{dep}, nil
+		injector.ProvideNew(&DependencyB{}, func(dep *Dependency) *DependencyB {
+			return &DependencyB{dep}
 		})
 
 		injector.ProvideValue(&Dependency{})
@@ -144,20 +136,12 @@ func TestKatanaResolvesTransitiveDependencies(t *testing.T) {
 func TestKatanaDetectsCyclicDependencies(t *testing.T) {
 
 	Convey("Given I have cyclic dependencies", t, func() {
-		injector := katana.New().ProvideNew(&DependencyC{}, func(injector *katana.Injector) (katana.Instance, error) {
-			var dep *DependencyD
-			if err := injector.Resolve(&dep); err != nil {
-				return nil, err
-			}
-			return &DependencyC{dep}, nil
+		injector := katana.New().ProvideNew(&DependencyC{}, func(dep *DependencyD) *DependencyC {
+			return &DependencyC{dep}
 		})
 
-		injector.ProvideNew(&DependencyD{}, func(injector *katana.Injector) (katana.Instance, error) {
-			var dep *DependencyC
-			if err := injector.Resolve(&dep); err != nil {
-				return nil, err
-			}
-			return &DependencyD{dep}, nil
+		injector.ProvideNew(&DependencyD{}, func(dep *DependencyC) *DependencyD {
+			return &DependencyD{dep}
 		})
 
 		Convey("When I resolve the cyclic dependency", func() {

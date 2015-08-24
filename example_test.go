@@ -40,33 +40,18 @@ func TestKatanaAPI(t *testing.T) {
 	// or a copy of the object in case of a value
 	injector.ProvideValue(config)
 
-	injector.ProvideNew(&Cache{}, func(injector *katana.Injector) (katana.Instance, error) {
-		var config Config
-		if err := injector.Resolve(&config); err != nil {
-			return nil, err
-		}
-
-		return &Cache{config.CacheTTL}, nil
+	injector.ProvideNew(&Cache{}, func(config Config) *Cache {
+		return &Cache{config.CacheTTL}
 	})
 
 	// The provider below provides a new instance of *Datastore whenever it is requested. Its resolved instance is never cached and subsequent resolution calls of the same type will always call the provider function.
-	injector.ProvideNew(&Datastore{}, func(injector *katana.Injector) (katana.Instance, error) {
-		var config Config
-		var cache *Cache
-		if err := injector.Resolve(&config, &cache); err != nil {
-			return nil, err
-		}
-
-		return &Datastore{cache, config.DatastoreURL}, nil
+	injector.ProvideNew(&Datastore{}, func(config Config, cache *Cache) *Datastore {
+		return &Datastore{cache, config.DatastoreURL}
 	})
 
 	// A singleton provider is called at most once and its resolved value is then cached so further requests yield the same result.
-	injector.ProvideSingleton(&AccountService{}, func(injector *katana.Injector) (katana.Instance, error) {
-		var db *Datastore
-		if err := injector.Resolve(&db); err != nil {
-			return nil, err
-		}
-		return &AccountService{db}, nil
+	injector.ProvideSingleton(&AccountService{}, func(db *Datastore) *AccountService {
+		return &AccountService{db}
 	})
 
 	var service1, service2 *AccountService
@@ -81,7 +66,6 @@ func TestKatanaAPI(t *testing.T) {
 	if service1 != service2 {
 		t.Fatal("Expected %+v == %+v", service1, service2)
 	}
-
 
 	if service1.Datastore.URL != config.DatastoreURL {
 		t.Fatal("Expected datastore URL to be %v. Got %+v", config.DatastoreURL, service1.Datastore.URL)
