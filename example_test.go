@@ -38,7 +38,7 @@ func TestKatanaAPI(t *testing.T) {
 
 	// Registers a provider for the given instance. This type of provider returns the same object in case of registering a pointer
 	// or a copy of the object in case of a value
-	injector.ProvideValue(config)
+	injector.Provide(config)
 
 	injector.ProvideNew(&Cache{}, func(config Config) *Cache {
 		return &Cache{config.CacheTTL}
