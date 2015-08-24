@@ -39,33 +39,33 @@ type DependencyD struct {
 }
 
 func TestKatanaProvideValues(t *testing.T) {
-	type Cache struct {
+	type DepA struct {
 		Field string
 	}
-	type Request struct {
+	type DepB struct {
 		Field string
 	}
 
 	Convey("Given I have an instance of katana injector with a few value providers", t, func() {
-		cache := &Cache{}
-		req := Request{}
+		depA := &DepA{}
+		depB := DepB{}
 
-		injector := katana.New().ProvideValue(cache, req)
+		injector := katana.New().ProvideValue(depA, depB)
 
 		Convey("When I resolve instances of the provided values", func() {
-			var cache1, cache2 *Cache
-			var req1, req2 Request
+			var depA1, depA2 *DepA
+			var depB1, depB2 DepB
 
-			err := injector.Resolve(&cache1, &cache2, &req1, &req2)
+			err := injector.Resolve(&depA1, &depA2, &depB1, &depB2)
 
 			Convey("Then instances of the same type are the same", func() {
 				So(err, should.BeNil)
-				So(req1, should.NotBeNil)
-				So(req2, should.NotBeNil)
-				So(req1, should.Resemble, req2)
-				So(cache1, should.NotBeNil)
-				So(cache2, should.NotBeNil)
-				So(cache1, should.Equal, cache2)
+				So(depB1, should.NotBeNil)
+				So(depB2, should.NotBeNil)
+				So(depB1, should.Resemble, depB2)
+				So(depA1, should.NotBeNil)
+				So(depA2, should.NotBeNil)
+				So(depA1, should.Equal, depA2)
 			})
 		})
 	})
@@ -154,6 +154,39 @@ func TestKatanaDetectsCyclicDependencies(t *testing.T) {
 					reflect.TypeOf(&DependencyD{}).String(),
 					reflect.TypeOf(&DependencyC{}).String(),
 				}})
+			})
+		})
+	})
+}
+
+func TestInvalidProviderFunction(t *testing.T) {
+
+	Convey("Given I a provider function with no return value for a given dependency", t, func() {
+		injector := katana.New().ProvideNew(&DependencyC{}, func() {})
+
+		Convey("When I resolve the dependency", func() {
+			var dep *DependencyC
+			err := injector.Resolve(&dep)
+
+			Convey("Then it fails with an invalid provider error", func() {
+				So(err.Error(), should.Resemble, katana.ErrInvalidProvider{reflect.TypeOf(func() {})}.Error())
+			})
+		})
+	})
+
+	Convey("Given I a provider function with multiple return values for a given dependency", t, func() {
+		injector := katana.New().ProvideNew(&DependencyC{}, func() (*DependencyC, error) {
+			return nil, nil
+		})
+
+		Convey("When I resolve the dependency", func() {
+			var dep *DependencyC
+			err := injector.Resolve(&dep)
+
+			Convey("Then it fails with an invalid provider error", func() {
+				So(err.Error(), should.Resemble, katana.ErrInvalidProvider{reflect.TypeOf(func() (*DependencyC, error) {
+					return nil, nil
+				})}.Error())
 			})
 		})
 	})

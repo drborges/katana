@@ -1,7 +1,6 @@
 package katana
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -15,15 +14,13 @@ var (
 
 type InstanceType string
 type Instance interface{}
+type Provider interface{}
 type Callable func() []Instance
 
-// must be callable
-type Provider interface{}
-
 type Dependency struct {
-	Type        InstanceType
-	Provider    Provider
-	NewInstance Callable
+	Type             InstanceType
+	Provider         Provider
+	InjectedProvider Callable
 }
 
 type Trace []string
@@ -140,19 +137,19 @@ func (injector *Injector) Resolve(items ...interface{}) error {
 		}
 
 		// Requests a new instance of the dependency from the provider
-		if dep.NewInstance == nil {
+		if dep.InjectedProvider == nil {
 			injectedProvider, err := injector.Inject(dep.Provider)
 			if err != nil {
 				return err
 			}
-			dep.NewInstance = injectedProvider
+			dep.InjectedProvider = injectedProvider
 		}
 
-		ret := dep.NewInstance()
+		ret := dep.InjectedProvider()
 		injector.trace.Reset()
 
 		if len(ret) != 1 {
-			return errors.New("Provider did not returned any instance")
+			return ErrInvalidProvider{reflect.TypeOf(dep.Provider)}
 		}
 
 		inst := ret[0]
@@ -232,4 +229,12 @@ type ErrCyclicDependency struct {
 
 func (err ErrCyclicDependency) Error() string {
 	return fmt.Sprintf("Cyclic dependency detected: [%v]", strings.Join(err.Trace, " -> "))
+}
+
+type ErrInvalidProvider struct {
+	Type reflect.Type
+}
+
+func (err ErrInvalidProvider) Error() string {
+	return fmt.Sprintf("Invalid provider function: %v", err.Type.String())
 }
