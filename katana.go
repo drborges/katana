@@ -139,13 +139,14 @@ func (injector *Injector) Resolve(items ...interface{}) error {
 
 		typ = typ.Elem()
 
+		// Checks whether there is a registered provider for the dependency
 		dep, registered := injector.dependencies[typ]
 		if !registered {
 			return ErrNoSuchProvider{typ}
 		}
 
+		// Checks instances cache for previous resolved dependency in case it is a singleton one
 		if dep.Type == TypeSingleton {
-			// Checks whether the item has already been resolved
 			if inst, cached := injector.instances[typ]; cached {
 				// Resolves the dependency with the cached instance
 				val.Elem().Set(reflect.ValueOf(inst))
@@ -153,12 +154,19 @@ func (injector *Injector) Resolve(items ...interface{}) error {
 			}
 		}
 
+		// Add to the trace the current dependency type being resolved
+		// so that cyclic dependencies may be detected
 		if err := injector.trace.Add(typ); err != nil {
 			return err
 		}
 
-		// Requests a new instance of the dependency from the provider
-		if dep.InjectedProvider == nil {
+		// Always resolves and injects the provider arguments if it is a new instance provider
+		// That ensures the whole provided instance to be fresh new as well as any dependency that
+		// happens to be provided by a new instance provider
+		//
+		// In case of a singleton provider the arguments are resolved only once and cache within the
+		// injected provider closure
+		if dep.Type == TypeNewInstance || dep.InjectedProvider == nil {
 			injectedProvider, err := injector.Inject(dep.Provider)
 			if err != nil {
 				return err

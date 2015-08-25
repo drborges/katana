@@ -87,6 +87,32 @@ func TestKatanaProvideNewInstance(t *testing.T) {
 			})
 		})
 	})
+
+	Convey("Given I have two new instance providers one for *Dependency and another one for *DependencyB", t, func() {
+		injector := katana.New().ProvideNew(&Dependency{}, func() *Dependency {
+			return &Dependency{}
+		})
+
+		injector.ProvideNew(&DependencyB{}, func(dep *Dependency) *DependencyB {
+			return &DependencyB{dep}
+		})
+
+		Convey("When I resolve multiple instances of *DependencyB which depends on *Dependency", func() {
+			var dep1, dep2 *DependencyB
+			err := injector.Resolve(&dep1, &dep2)
+
+			Convey("Then the resolved dependencies point to different memory addresses", func() {
+				So(err, should.BeNil)
+				So(dep1, should.NotEqual, dep2)
+
+				Convey("And its dependencies also point to different memory addresses", func() {
+					So(dep1.Dep, should.NotBeNil)
+					So(dep2.Dep, should.NotBeNil)
+					So(dep1.Dep, should.NotEqual, dep2.Dep)
+				})
+			})
+		})
+	})
 }
 
 func TestKatanaProvideSingletonInstance(t *testing.T) {
