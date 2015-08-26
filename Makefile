@@ -1,22 +1,20 @@
-.PHONY: all
-
-gigo_path := $(GOPATH)/src/github.com/LyricalSecurity/gigo
-
-all: setup update test
-setup:
-	@[[ ! -d $(gigo_path) ]] && git clone https://github.com/drborges/gigo $(gigo_path) || true
-	go get github.com/LyricalSecurity/gigo/...
-	go install github.com/LyricalSecurity/gigo
+.PHONY: clean update format test
 
 test:
-	goapp test ./... -v -run=$(grep)
+	@go test ./... -v -run=$(grep)
+
+format:
+	@go fmt ./...
 
 build:
-	goapp build ./...
+	@go build ./...
+
+clean:
+	@go clean
 
 update:
-	GIGO_GO=goapp gigo install -r requirements.txt
+	@go get -u -f github.com/smartystreets/goconvey/convey
 
-delete-branches:
-	git branch | grep -v master | xargs -I {} git branch -D {}
+rm-local-branches:
+	@git branch | grep -v master | xargs -I {} git branch -D {}
 
