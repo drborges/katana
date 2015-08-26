@@ -37,6 +37,21 @@ type DependencyD struct {
 	Dep *DependencyC
 }
 
+type InterfaceDependency interface {
+	Method1() string
+	Method2()
+}
+
+type InterfaceDependencyImpl struct {
+	Field string
+}
+
+func (dep *InterfaceDependencyImpl) Method1() string {
+	return "method 1"
+}
+
+func (dep *InterfaceDependencyImpl) Method2() {}
+
 func TestKatanaProvideValues(t *testing.T) {
 	type DepA struct {
 		Field string
@@ -111,7 +126,7 @@ func TestKatanaProvideNewInstance(t *testing.T) {
 	})
 }
 
-func TestKatanaProvideSingletonInstance(t *testing.T) {
+func TestKatanaProvidesSingletonInstance(t *testing.T) {
 	Convey("Given I have an instance of katana injector with a singleton dependency provider", t, func() {
 		injector := katana.New().ProvideSingleton(&Dependency{}, func() *Dependency {
 			return &Dependency{}
@@ -123,6 +138,44 @@ func TestKatanaProvideSingletonInstance(t *testing.T) {
 
 			Convey("Then the resolved dependencies points to the same memory address", func() {
 				So(dep1, should.Equal, dep2)
+			})
+		})
+	})
+}
+
+func TestKatanaProvidesSingletonInstanceOfInterfaceType(t *testing.T) {
+	Convey("Given I have a provider of an interface dependency type", t, func() {
+		injector := katana.New().ProvideSingleton((*InterfaceDependency)(nil), func() InterfaceDependency {
+			return &InterfaceDependencyImpl{}
+		})
+
+		Convey("When I resolve multiple instances of the provided dependency", func() {
+			var dep1, dep2 InterfaceDependency
+			injector.Resolve(&dep1, &dep2)
+
+			Convey("Then the dependencies are resolved", func() {
+				So(dep1, should.Equal, dep2)
+				So(dep1, should.HaveSameTypeAs, &InterfaceDependencyImpl{})
+				So(dep2, should.HaveSameTypeAs, &InterfaceDependencyImpl{})
+			})
+		})
+	})
+}
+
+func TestKatanaProvidesNewInstanceOfInterfaceType(t *testing.T) {
+	Convey("Given I have a provider of an interface dependency type", t, func() {
+		injector := katana.New().ProvideNew((*InterfaceDependency)(nil), func() InterfaceDependency {
+			return &InterfaceDependencyImpl{}
+		})
+
+		Convey("When I resolve multiple instances of the provided dependency", func() {
+			var dep1, dep2 InterfaceDependency
+			injector.Resolve(&dep1, &dep2)
+
+			Convey("Then the dependencies are resolved", func() {
+				So(dep1, should.NotEqual, dep2)
+				So(dep1, should.HaveSameTypeAs, &InterfaceDependencyImpl{})
+				So(dep2, should.HaveSameTypeAs, &InterfaceDependencyImpl{})
 			})
 		})
 	})

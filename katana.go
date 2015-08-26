@@ -86,6 +86,10 @@ func (injector *Injector) Clone() *Injector {
 func (injector *Injector) ProvideNew(dep interface{}, p Provider) *Injector {
 	typ := reflect.TypeOf(dep)
 
+	if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Interface {
+		typ = typ.Elem()
+	}
+
 	if _, registered := injector.dependencies[typ]; registered {
 		panic(ErrProviderAlreadyRegistered{typ})
 	}
@@ -104,6 +108,11 @@ func (injector *Injector) ProvideNew(dep interface{}, p Provider) *Injector {
 
 func (injector *Injector) ProvideSingleton(dep interface{}, p Provider) *Injector {
 	typ := reflect.TypeOf(dep)
+
+	if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Interface {
+		typ = typ.Elem()
+	}
+
 	if _, registered := injector.dependencies[typ]; registered {
 		panic(ErrProviderAlreadyRegistered{typ})
 	}
@@ -161,9 +170,10 @@ func (injector *Injector) Resolve(items ...interface{}) {
 			panic(err)
 		}
 
-		// Always resolves and injects the provider arguments if it is a new instance provider
-		// That ensures the whole provided instance to be fresh new as well as any dependency that
-		// happens to be provided by a new instance provider
+		// In case that there is a provider for the current item and it is not a singleton one
+		// a.k.a provides a fresh new instance of the dependency, the provider arguments are resolved and
+		// injected into the provider returning a closure that when executed returns the requested dependency
+		// That ensures the provided dependency will be fresh new as well as any of its dependencies
 		//
 		// In case of a singleton provider the arguments are resolved only once and cache within the
 		// injected provider closure
