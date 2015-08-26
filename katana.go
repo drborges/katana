@@ -7,15 +7,31 @@ import (
 )
 
 var (
-	TypeSingleton   = InstanceType("Singleton Dependency")
-	TypeNewInstance = InstanceType("New Instance Dependency")
+	// TypeSingleton is an injectable whose provider is called at most once and its provided instance
+	// is cached so that subsequent requests for that same type yield the same result.
+	TypeSingleton = InjectableType("Singleton Dependency")
+	// TypeNew is an injectable whose provider is called whenever an instance of the corresponding type
+	// is requested. Different calls to the provider of this type of injectable will yield different instances
+	TypeNew = InjectableType("New Instance Dependency")
 )
 
-type InstanceType string
+// InjectableType describes the type of the registered injectable.
+// It may assume two values: TypeSingleton or TypeNew
+type InjectableType string
+
+// Instance is an instance of a type provided by a registered provider function
 type Instance interface{}
+
+// Provider is a function that takes zero or more parameters and returns exactly one value
 type Provider interface{}
+
+// Callable wraps a provider function whose arguments have been resolved and injected
 type Callable func() []Instance
 
+// ValidateProvider validates whether or not a given provider is valid
+// Providers must be callable a.k.a functions, taking zero or more arguments
+// and returning exactly one value, the provided instance of the registered
+// injectable.
 func ValidateProvider(provider Provider) error {
 	typ := reflect.TypeOf(provider)
 
@@ -30,11 +46,18 @@ func ValidateProvider(provider Provider) error {
 	return nil
 }
 
-type Dependency struct {
-	Type     InstanceType
+// Injectable describes a particular type that can have instances injected as dependency
+// provided by a registered provider function.
+type Injectable struct {
+	Type     InjectableType
 	Provider Provider
 }
 
+// TODO need to stress cyclic dependency scenarios
+// I'm under the impression this trace solution is flawed and does not cover
+// cases where the dependency graph is more complex
+//
+// Seems like the proper solution is to replace the ordered list with a tree data structure
 type Trace []string
 
 func (trace *Trace) Add(typ reflect.Type) (err error) {
@@ -54,42 +77,55 @@ func (trace *Trace) Reset() {
 	*trace = Trace{}
 }
 
+// Injector is katana's DI implementation driven by typed provider functions.
+//
+// A provider function registered with the injector provides instances of a given type.
+// Katana supports three types of providers:
+//
+// 1. Value Provider: For a given type it always provides a particular instance defined by the user.
+// For detailed information see Injector#Provide method.
+// 2. New Instance Provider: Always provides a new instance of the registered type, resolving any
+// transitive dependency the instance may have.
+// 3. Singleton Provider: Provides the same instance upon any request. The instance dependencies are
+// resolved exactly once cached for further use.
 type Injector struct {
-	dependencies map[reflect.Type]*Dependency
-	instances    map[reflect.Type]Instance
-	trace        *Trace
+	injectables map[reflect.Type]*Injectable
+	instances   map[reflect.Type]Instance
+	trace       *Trace
 }
 
+// New provides a new instance of katana's injector
 func New() *Injector {
 	return &Injector{
-		dependencies: make(map[reflect.Type]*Dependency),
-		instances:    make(map[reflect.Type]Instance),
-		trace:        &Trace{},
+		injectables: make(map[reflect.Type]*Injectable),
+		instances:   make(map[reflect.Type]Instance),
+		trace:       &Trace{},
 	}
 }
 
+// Clone returns a thread-safe copy of the injector
+// This is particularly useful when used within web servers or any scenario where concurrency is present
 func (injector *Injector) Clone() *Injector {
 	newInjector := New()
 
-	for t, p := range injector.dependencies {
-		newInjector.dependencies[t] = p
-	}
-
-	for t, i := range injector.instances {
-		newInjector.instances[t] = i
+	for t, p := range injector.injectables {
+		newInjector.injectables[t] = p
 	}
 
 	return newInjector
 }
 
-func (injector *Injector) ProvideNew(dep interface{}, p Provider) *Injector {
-	typ := reflect.TypeOf(dep)
+// ProvideNew provides a new instance of the registered injectable with all its dependencies (if any)
+// resolved by calling their corresponding provider functions.
+// Multiple calls to this method will yield a new result provided by the registered provider function
+func (injector *Injector) ProvideNew(injectable interface{}, p Provider) *Injector {
+	typ := reflect.TypeOf(injectable)
 
 	if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Interface {
 		typ = typ.Elem()
 	}
 
-	if _, registered := injector.dependencies[typ]; registered {
+	if _, registered := injector.injectables[typ]; registered {
 		panic(ErrProviderAlreadyRegistered{typ})
 	}
 
@@ -97,22 +133,26 @@ func (injector *Injector) ProvideNew(dep interface{}, p Provider) *Injector {
 		panic(err)
 	}
 
-	injector.dependencies[typ] = &Dependency{
-		Type:     TypeNewInstance,
+	injector.injectables[typ] = &Injectable{
+		Type:     TypeNew,
 		Provider: p,
 	}
 
 	return injector
 }
 
-func (injector *Injector) ProvideSingleton(dep interface{}, p Provider) *Injector {
-	typ := reflect.TypeOf(dep)
+// ProvideSingleton provides the same instance of the registered injectable with all its dependencies (if any)
+// resolved by calling their corresponding provider functions.
+// The instance provided by the registered provider function is cached so that multiple calls to this
+// method yield the same result.
+func (injector *Injector) ProvideSingleton(injectable interface{}, p Provider) *Injector {
+	typ := reflect.TypeOf(injectable)
 
 	if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Interface {
 		typ = typ.Elem()
 	}
 
-	if _, registered := injector.dependencies[typ]; registered {
+	if _, registered := injector.injectables[typ]; registered {
 		panic(ErrProviderAlreadyRegistered{typ})
 	}
 
@@ -120,7 +160,7 @@ func (injector *Injector) ProvideSingleton(dep interface{}, p Provider) *Injecto
 		panic(err)
 	}
 
-	injector.dependencies[typ] = &Dependency{
+	injector.injectables[typ] = &Injectable{
 		Type:     TypeSingleton,
 		Provider: p,
 	}
@@ -128,18 +168,31 @@ func (injector *Injector) ProvideSingleton(dep interface{}, p Provider) *Injecto
 	return injector
 }
 
-func (injector *Injector) Provide(values ...interface{}) *Injector {
-	for _, value := range values {
-		injector.ProvideSingleton(value, func(v interface{}) Provider {
-			return func() Instance { return v }
-		}(value))
+// Provide is a short hand method that allows user defined instances to be injected as singletons
+// Under the hood a singleton provider function is created for each user defined instance.
+func (injector *Injector) Provide(instances ...interface{}) *Injector {
+	for _, instance := range instances {
+		injector.ProvideSingleton(instance, func(inst interface{}) Provider {
+			return func() Instance { return inst }
+		}(instance))
 	}
 	return injector
 }
 
-func (injector *Injector) Resolve(items ...interface{}) {
-	for _, item := range items {
-		val := reflect.ValueOf(item)
+// Resolve resolves type references into actual instances provided by their corresponding provider
+// functions if any.
+// Each reference MUST be a pointer to the requested type, even if the requested type is already a
+// pointer.
+//
+// For instance, lets say you need an instance of *Account type a.k.a an instance of a pointer to
+// the Account type, assuming there is a provider of *Account, you can easialy then get an instance
+// of it with its dependencies injected by doing the following:
+//
+// var acc *Account
+// injector.Resolve(&acc)
+func (injector *Injector) Resolve(refs ...interface{}) {
+	for _, ref := range refs {
+		val := reflect.ValueOf(ref)
 		typ := val.Type()
 
 		if typ.Kind() != reflect.Ptr {
@@ -149,13 +202,13 @@ func (injector *Injector) Resolve(items ...interface{}) {
 		typ = typ.Elem()
 
 		// Checks whether there is a registered provider for the dependency
-		dep, registered := injector.dependencies[typ]
+		injectable, registered := injector.injectables[typ]
 		if !registered {
 			panic(ErrNoSuchProvider{typ})
 		}
 
 		// Checks instances cache for previous resolved dependency in case it is a singleton one
-		if dep.Type == TypeSingleton {
+		if injectable.Type == TypeSingleton {
 			if inst, cached := injector.instances[typ]; cached {
 				// Resolves the dependency with the cached instance
 				val.Elem().Set(reflect.ValueOf(inst))
@@ -171,19 +224,21 @@ func (injector *Injector) Resolve(items ...interface{}) {
 
 		// Resolves the provider arguments -- if any -- as dependencies returning
 		// a closure with the resolved arguments injected
-		inst := injector.Inject(dep.Provider)()[0]
+		inst := injector.Inject(injectable.Provider)()[0]
 		injector.trace.Reset()
 
 		// Resolves the dependency with the new instance
 		val.Elem().Set(reflect.ValueOf(inst))
 
 		// Caches the instance in case the dependency is a singleton
-		if injector.dependencies[typ].Type == TypeSingleton {
+		if injector.injectables[typ].Type == TypeSingleton {
 			injector.instances[typ] = inst
 		}
 	}
 }
 
+// Inject resolves and injects all arguments of the given function 'fn' returning a Callable
+// which is essentially a closure holding the resolved argument values.
 func (injector *Injector) Inject(fn interface{}) Callable {
 	val := reflect.ValueOf(fn)
 	typ := val.Type()
@@ -192,16 +247,16 @@ func (injector *Injector) Inject(fn interface{}) Callable {
 		panic(ErrNoSuchCallable{typ})
 	}
 
-	deps := make([]reflect.Value, typ.NumIn())
+	args := make([]reflect.Value, typ.NumIn())
 	for i := 0; i < typ.NumIn(); i++ {
-		depVal := reflect.New(typ.In(i))
-		dep := depVal.Interface()
-		injector.Resolve(dep)
-		deps[i] = depVal.Elem()
+		argVal := reflect.New(typ.In(i))
+		arg := argVal.Interface()
+		injector.Resolve(arg)
+		args[i] = argVal.Elem()
 	}
 
-	injected := func() []Instance {
-		outVals := val.Call(deps)
+	callable := func() []Instance {
+		outVals := val.Call(args)
 		outs := make([]Instance, len(outVals))
 		for i, val := range outVals {
 			outs[i] = val.Interface()
@@ -209,7 +264,7 @@ func (injector *Injector) Inject(fn interface{}) Callable {
 		return outs
 	}
 
-	return injected
+	return callable
 }
 
 type ErrNoSuchPtr struct {
