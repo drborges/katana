@@ -189,19 +189,44 @@ func TestKatanaResolvesTransitiveDependencies(t *testing.T) {
 	})
 }
 
+type DepA struct {
+	depB *DepB
+	depD *DepD
+}
+
+type DepB struct {
+	field string
+}
+
+type DepC struct {
+	dep *DepA
+}
+
+type DepD struct {
+	dep *DepC
+}
+
 func TestKatanaDetectsCyclicDependencies(t *testing.T) {
 
 	Convey("Given I have cyclic dependencies", t, func() {
-		injector := katana.New().ProvideNew(&DependencyC{}, func(dep *DependencyD) *DependencyC {
-			return &DependencyC{dep}
+		injector := katana.New().ProvideNew(&DepA{}, func(depB *DepB, depD *DepD) *DepA {
+			return &DepA{depB, depD}
 		})
 
-		injector.ProvideNew(&DependencyD{}, func(dep *DependencyC) *DependencyD {
-			return &DependencyD{dep}
+		injector.ProvideNew(&DepB{}, func() *DepB {
+			return &DepB{}
+		})
+
+		injector.ProvideNew(&DepC{}, func(dep *DepA) *DepC {
+			return &DepC{dep}
+		})
+
+		injector.ProvideNew(&DepD{}, func(dep *DepC) *DepD {
+			return &DepD{dep}
 		})
 
 		Convey("When I resolve the cyclic dependency", func() {
-			var dep *DependencyC
+			var dep *DepA
 			resolveWithCyclicDependency := func() {
 				injector.Resolve(&dep)
 			}

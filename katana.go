@@ -53,28 +53,23 @@ type Injectable struct {
 	Provider Provider
 }
 
-// TODO need to stress cyclic dependency scenarios
-// I'm under the impression this trace solution is flawed and does not cover
-// cases where the dependency graph is more complex
-//
-// Seems like the proper solution is to replace the ordered list with a tree data structure
-type Trace []string
-
-func (trace *Trace) Add(typ reflect.Type) (err error) {
-	for _, t := range *trace {
-		if t == typ.String() {
-			defer trace.Reset()
-			*trace = append(*trace, typ.String())
-			err = ErrCyclicDependency{*trace}
-			break
-		}
-	}
-	*trace = append(*trace, typ.String())
-	return err
+// Trace keeps track of the current dependency graph under resolution watching out for
+// cyclic dependencies.
+// TODO merge trace and stack code into a separate file
+type Trace struct {
+	Stack
 }
 
-func (trace *Trace) Reset() {
-	*trace = Trace{}
+// Add adds a dependency type under resolution returning an ErrCyclicDependency in case
+// of a cyclic dependency is detected, returns nil otherwise.
+func (trace *Trace) Add(typ reflect.Type) (err error) {
+	if trace.Contains(typ.String()) {
+		defer trace.Reset()
+		trace.Push(typ.String())
+		return ErrCyclicDependency{trace}
+	}
+	trace.Push(typ.String())
+	return err
 }
 
 // Injector is katana's DI implementation driven by typed provider functions.
@@ -210,7 +205,7 @@ func (injector *Injector) Resolve(refs ...interface{}) {
 		// Resolves the provider arguments -- if any -- as dependencies returning
 		// a closure with the resolved arguments injected
 		inst := injector.Inject(injectable.Provider)()[0]
-		injector.trace.Reset()
+		injector.trace.Pop()
 
 		// Resolves the dependency with the new instance
 		val.Elem().Set(reflect.ValueOf(inst))
@@ -277,11 +272,11 @@ func (err ErrNoSuchProvider) Error() string {
 }
 
 type ErrCyclicDependency struct {
-	Trace Trace
+	Trace *Trace
 }
 
 func (err ErrCyclicDependency) Error() string {
-	return fmt.Sprintf("Cyclic dependency detected: [%v]", strings.Join(err.Trace, " -> "))
+	return fmt.Sprintf("Cyclic dependency detected: [%v]", strings.Join(err.Trace.items, " -> "))
 }
 
 type ErrInvalidProvider struct {
