@@ -2,7 +2,7 @@
 
 Dependency Injection package driven by providers
 
-Katana follows a similar approach to `AngularJS`'s DI solution. In order to be able to inject a given type, you simply need to implement one of the available provider functions (`injector.ProvideValues`, `injector.ProvideNew`, `injector.ProvideSingleton`) that knows how to build up an instance of a given type resolving its own dependencies by using katana's `Injector` passed to the provider.
+Katana follows a similar approach to `AngularJS`'s DI solution. In order to be able to inject a given type, you simply need to implement one of the available provider functions (`injector.Provide`, `injector.ProvideNew`, `injector.ProvideSingleton`) that knows how to build up an instance of a given type resolving its own dependencies by using katana's `Injector` passed to the provider.
 
 Katana will detect any eventual `cyclic dependency` providing a dev friendly error as the result of a call to `injector.Resolve(...)`.
 
@@ -10,107 +10,99 @@ For a deep dive check the example below, though before you jump into it, have in
 
 1. One `must` always pass a `pointer` of a variable to the `injector.Resolve(&dep)` call `even` if the dependency is already a pointer. That is required so that katana may set the resolved dependency value back into that variable.
 
-### Commented Example:
+### How Does It Work?
+
+Lets say you have the following types each with their own dependencies:
 
 ```go
-package katana_test
-
-import (
-	"github.com/drborges/katana"
-	"log"
-	"testing"
-)
-
 type Config struct {
 	DatastoreURL string
 	CacheTTL     int
-	// Omitted code
 }
 
 type Cache struct {
 	TTL int
-	// Omitted code
 }
 
 type Datastore struct {
 	Cache *Cache
 	URL   string
-	// Omitted code
 }
 
 type AccountService struct {
 	Datastore *Datastore
-	// Omitted code
+}
+```
+
+In order to use `katana` to resolve instances of these types along with their dependencies you need to:
+```go
+// Grabs a new instance of katana.Injector
+injector := katana.New()
+
+// Global configuration instance
+config := Config{
+	DatastoreURL: "https://myawesomestartup.com/db",
+	CacheTTL:     20000,
 }
 
-func TestKatanaAPI(t *testing.T) {
-	injector := katana.New()
+// Registers a provider for config. Katana will resolve dependencies to Config by
+// setting them to this particular instance.
+injector.Provide(config)
 
-	config := Config{
-		DatastoreURL: "https://myawesomestartup.com/db",
-		CacheTTL:     20000,
-	}
+// Registers a provider for *Cache whose result is never cached, which means
+// different requests for an instance of *Cache will yield different instances.
+injector.ProvideNew(&Cache{}, func(config Config) *Cache {
+	return &Cache{config.CacheTTL}
+})
 
-	// Registers a provider for the given instance. This type of provider returns the same object in case of registering a pointer
-	// or a copy of the object in case of a value
-	injector.ProvideValue(config)
+// Registers a provider for *Datastore with all its dependencies (Config, *Cache)
+// being resolved and injected into the provider function.
+injector.ProvideNew(&Datastore{}, func(config Config, cache *Cache) *Datastore {
+	return &Datastore{cache, config.DatastoreURL}
+})
 
-	injector.ProvideNew(&Cache{}, func(config Config) *Cache {
-		return &Cache{config.CacheTTL}, nil
-	})
+// Registers a singleton provider for *AccountService. The instance provided by
+// a singleton provider is cached so further requests yield the same result.
+injector.ProvideSingleton(&AccountService{}, func(db *Datastore) *AccountService {
+	return &AccountService{db}
+})
+```
 
-	// The provider below provides a new instance of *Datastore whenever it is requested. Its resolved instance is never cached and subsequent resolution calls of the same type will always call the provider function.
-	injector.ProvideNew(&Datastore{}, func(config Config, cache *Cache) *Datastore {
-		return &Datastore{cache, config.DatastoreURL}, nil
-	})
+Finally you can get instances of the provided `injectables` with all their dependencies -- if any -- resolved:
 
-	// A singleton provider is called at most once and its resolved value is then cached so further requests yield the same result.
-	injector.ProvideSingleton(&AccountService{}, func(db *Datastore) *Datastore {
-		return &AccountService{db}, nil
-	})
+```go
+var service1, service2 *AccountService
+var db1, db2 *Datastore
+var cache1, cache2 *Cache
+var config Config
 
-	var service1, service2 *AccountService
-
-	// service1 and service2 will hold the same value since the provider for *AccountService is a singleton one
-	if err := injector.Resolve(&service1, &service2); err != nil {
-		log.Fatal(err)
-	}
-
-	// service dependencies resolved, enjoy! ;)
-
-	if service1 != service2 {
-		t.Fatal("Expected %+v == %+v", service1, service2)
-	}
-
-	if service1.Datastore.URL != config.DatastoreURL {
-		t.Fatal("Expected datastore URL to be %v. Got %+v", config.DatastoreURL, service1.Datastore.URL)
-	}
-
-	if service1.Datastore.Cache.TTL != config.CacheTTL {
-		t.Fatal("Expected cache TTL to be %v. Got %+v", config.CacheTTL, service1.Datastore.Cache.TTL)
-	}
-}
+// Katana allows you to resolve multiple instances on a single "shot"
+// 
+// Note that:
+// 1. service1 == service2 since *AccountService provider is a singleton
+// 2. db1 != db2 since their providers are not singleton ones and will always yield a new instance of the provided type.
+// 3. cache1 != cache2 same reason as item 2.
+// 4. config will point to the Config instance defined in the previous code block, since it was provided using Injector#Provide method.
+injector.Resolve(&service1, &service2, &db1, &db2, &cache1, &cache2, &config)
 ```
 
 # Thread-safety
 
-In order to use katana in a multi-thread environment (across multiple goroutines) you can use `Injector.Clone()` to get a hold of a copy of the injector that you can safely use without worring about getting it messed up by other threads.
+In order to use `katana` in a `multi-thread` environment you can use `Injector.Clone()` to get a hold of a copy of the injector with no resolved instances cached. Every new provider registered in the new copy, won't be available to other copies of `katana.Injector`.
 
 # Example: HTTP server
 
 ```go
-
 // Assuming we have the injector instance from the example above ^
 http.HandleFunc("/bar", func(w http.ResponseWriter, r *http.Request) {
-    var service *AccountService
-    // There are two things to consider in the following code:
-    // 1. We get a copy of the injector so that we can use it in a multi-thread environment.
-    // 2. We register one provider for http.ResponseWriter and another one for *http.Request so we can inject them as dependencies into any type requesting them (though in this case we don't do anything with them, will work on a better example ><)
-	if err := injector.Clone().ProvideValue(w, r).ResolveNew(&service); err != nil {
-	    log.Fatal(err)
-	}
-	
-	// do something with service...
+	var service *AccountService
+
+	// There are two things to consider in the following code:
+	//
+	// 1. A copy of the injector is created so we can safely use it within a multi-thread environment.
+	// 2. The instances of http.ResponseWriter and *http.Request are provided by the injector
+	// 3. The instance of *AccountService is resolved as well as its dependencies
+	injector.Clone().Provide(w, r).Resolve(&service)
 })
 
 log.Fatal(http.ListenAndServe(":8080", nil))
@@ -118,16 +110,18 @@ log.Fatal(http.ListenAndServe(":8080", nil))
 
 # Injecting Function Arguments
 
-Katana provides a way to inject arguments into functions as well <3
+Katana allows you to inject arguments into functions as well <3
 
 ```go
-allAccounts, err := injector.Inject(func(srv *AccountService, conf Config) ([]*Accounts, error) {
-    return srv.Accounts()
+allAccounts := injector.Inject(func(srv *AccountService, conf Config) ([]*Accounts, error) {
+	return srv.Accounts()
 })
-
-// allAccounts is the resulting function holding all the resolved arguments
-// subsequent calls to allAccounts won't have to resolve the arguments again
-result := allAccounts()
-accounts, fetchAccountsErr := result[0], result[1]
 ```
 
+`Injector#Inject` returns a closure holding all the resolved function arguments and when called returns a slice with the function outputs, being empty in case the function does not return any value.
+
+```go
+if result := allAccounts(); !result.Empty() {
+	accounts, fetchAccountsErr := result[0], result[1]
+}
+```
