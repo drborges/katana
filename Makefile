@@ -1,10 +1,14 @@
-.PHONY: clean update format test
+.PHONY: clean update code-check test
 
 test:
 	@go test ./... -v -run=$(grep)
 
-format:
-	@go fmt ./...
+code-check:
+	@go fmt *.go
+	@go fmt -s -r '(a) -> a' -w *.go
+	@go fmt -s -r '(a) -> a' -w *.go
+	@go vet
+	@go fix
 
 build:
 	@go build ./...
