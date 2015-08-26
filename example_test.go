@@ -68,14 +68,14 @@ func TestKatanaAPI(t *testing.T) {
 	// service dependencies resolved, enjoy! ;)
 
 	if service1 != service2 {
-		t.Fatal("Expected %+v == %+v", service1, service2)
+		t.Fatalf("Expected %+v == %+v", service1, service2)
 	}
 
 	if service1.Datastore.URL != config.DatastoreURL {
-		t.Fatal("Expected datastore URL to be %v. Got %+v", config.DatastoreURL, service1.Datastore.URL)
+		t.Fatalf("Expected datastore URL to be %v. Got %+v", config.DatastoreURL, service1.Datastore.URL)
 	}
 
 	if service1.Datastore.Cache.TTL != config.CacheTTL {
-		t.Fatal("Expected cache TTL to be %v. Got %+v", config.CacheTTL, service1.Datastore.Cache.TTL)
+		t.Fatalf("Expected cache TTL to be %v. Got %+v", config.CacheTTL, service1.Datastore.Cache.TTL)
 	}
 }
