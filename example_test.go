@@ -2,7 +2,6 @@ package katana_test
 
 import (
 	"github.com/drborges/katana"
-	"log"
 	"testing"
 )
 
@@ -57,9 +56,7 @@ func TestKatanaAPI(t *testing.T) {
 	var service1, service2 *AccountService
 
 	// service1 and service2 will hold the same value since the provider for *AccountService is a singleton one
-	if err := injector.Resolve(&service1, &service2); err != nil {
-		log.Fatal(err)
-	}
+	injector.Resolve(&service1, &service2)
 
 	// service dependencies resolved, enjoy! ;)
 

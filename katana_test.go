@@ -4,7 +4,6 @@ import (
 	"github.com/drborges/katana"
 	"github.com/smartystreets/assertions/should"
 	. "github.com/smartystreets/goconvey/convey"
-	"reflect"
 	"testing"
 )
 
@@ -56,10 +55,9 @@ func TestKatanaProvideValues(t *testing.T) {
 			var depA1, depA2 *DepA
 			var depB1, depB2 DepB
 
-			err := injector.Resolve(&depA1, &depA2, &depB1, &depB2)
+			injector.Resolve(&depA1, &depA2, &depB1, &depB2)
 
 			Convey("Then instances of the same type are the same", func() {
-				So(err, should.BeNil)
 				So(depB1, should.NotBeNil)
 				So(depB2, should.NotBeNil)
 				So(depB1, should.Resemble, depB2)
@@ -79,10 +77,9 @@ func TestKatanaProvideNewInstance(t *testing.T) {
 
 		Convey("When I resolve multiple instances of the provided dependency", func() {
 			var dep1, dep2 *Dependency
-			err := injector.Resolve(&dep1, &dep2)
+			injector.Resolve(&dep1, &dep2)
 
 			Convey("Then the resolved dependnecies points to different memory address", func() {
-				So(err, should.BeNil)
 				So(dep1, should.NotEqual, dep2)
 			})
 		})
@@ -99,10 +96,9 @@ func TestKatanaProvideNewInstance(t *testing.T) {
 
 		Convey("When I resolve multiple instances of *DependencyB which depends on *Dependency", func() {
 			var dep1, dep2 *DependencyB
-			err := injector.Resolve(&dep1, &dep2)
+			injector.Resolve(&dep1, &dep2)
 
 			Convey("Then the resolved dependencies point to different memory addresses", func() {
-				So(err, should.BeNil)
 				So(dep1, should.NotEqual, dep2)
 
 				Convey("And its dependencies also point to different memory addresses", func() {
@@ -123,10 +119,9 @@ func TestKatanaProvideSingletonInstance(t *testing.T) {
 
 		Convey("When I resolve multiple instances of the provided dependency", func() {
 			var dep1, dep2 *Dependency
-			err := injector.Resolve(&dep1, &dep2)
+			injector.Resolve(&dep1, &dep2)
 
 			Convey("Then the resolved dependencies points to the same memory address", func() {
-				So(err, should.BeNil)
 				So(dep1, should.Equal, dep2)
 			})
 		})
@@ -147,10 +142,9 @@ func TestKatanaResolvesTransitiveDependencies(t *testing.T) {
 
 		Convey("When I resolve the root dep", func() {
 			var depA *DependencyA
-			err := injector.Resolve(&depA)
+			injector.Resolve(&depA)
 
 			Convey("Then all dependencies are resolved recursively", func() {
-				So(err, should.BeNil)
 				So(depA, should.NotBeNil)
 				So(depA.Dep, should.NotBeNil)
 				So(depA.Dep.Dep, should.NotBeNil)
@@ -172,14 +166,19 @@ func TestKatanaDetectsCyclicDependencies(t *testing.T) {
 
 		Convey("When I resolve the cyclic dependency", func() {
 			var dep *DependencyC
-			err := injector.Resolve(&dep)
+			resolveWithCyclicDependency := func() {
+				injector.Resolve(&dep)
+			}
 
 			Convey("Then all dependencies are resolved recursively", func() {
-				So(err, should.Resemble, katana.ErrCyclicDependency{katana.Trace{
-					reflect.TypeOf(&DependencyC{}).String(),
-					reflect.TypeOf(&DependencyD{}).String(),
-					reflect.TypeOf(&DependencyC{}).String(),
-				}})
+				So(resolveWithCyclicDependency, should.Panic)
+
+				// TODO write a test case to ensure cyclic dependency error is properly built
+				//	katana.ErrCyclicDependency{katana.Trace{
+				//		reflect.TypeOf(&DependencyC{}).String(),
+				//		reflect.TypeOf(&DependencyD{}).String(),
+				//		reflect.TypeOf(&DependencyC{}).String(),
+				//	}
 			})
 		})
 	})

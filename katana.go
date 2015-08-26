@@ -85,6 +85,7 @@ func (injector *Injector) Clone() *Injector {
 
 func (injector *Injector) ProvideNew(dep interface{}, p Provider) *Injector {
 	typ := reflect.TypeOf(dep)
+
 	if _, registered := injector.dependencies[typ]; registered {
 		panic(ErrProviderAlreadyRegistered{typ})
 	}
@@ -128,13 +129,13 @@ func (injector *Injector) Provide(values ...interface{}) *Injector {
 	return injector
 }
 
-func (injector *Injector) Resolve(items ...interface{}) error {
+func (injector *Injector) Resolve(items ...interface{}) {
 	for _, item := range items {
 		val := reflect.ValueOf(item)
 		typ := val.Type()
 
 		if typ.Kind() != reflect.Ptr {
-			return ErrNoSuchPtr{typ}
+			panic(ErrNoSuchPtr{typ})
 		}
 
 		typ = typ.Elem()
@@ -142,7 +143,7 @@ func (injector *Injector) Resolve(items ...interface{}) error {
 		// Checks whether there is a registered provider for the dependency
 		dep, registered := injector.dependencies[typ]
 		if !registered {
-			return ErrNoSuchProvider{typ}
+			panic(ErrNoSuchProvider{typ})
 		}
 
 		// Checks instances cache for previous resolved dependency in case it is a singleton one
@@ -157,7 +158,7 @@ func (injector *Injector) Resolve(items ...interface{}) error {
 		// Add to the trace the current dependency type being resolved
 		// so that cyclic dependencies may be detected
 		if err := injector.trace.Add(typ); err != nil {
-			return err
+			panic(err)
 		}
 
 		// Always resolves and injects the provider arguments if it is a new instance provider
@@ -167,10 +168,7 @@ func (injector *Injector) Resolve(items ...interface{}) error {
 		// In case of a singleton provider the arguments are resolved only once and cache within the
 		// injected provider closure
 		if dep.Type == TypeNewInstance || dep.InjectedProvider == nil {
-			injectedProvider, err := injector.Inject(dep.Provider)
-			if err != nil {
-				return err
-			}
+			injectedProvider := injector.Inject(dep.Provider)
 			dep.InjectedProvider = injectedProvider
 		}
 
@@ -178,7 +176,7 @@ func (injector *Injector) Resolve(items ...interface{}) error {
 		injector.trace.Reset()
 
 		if len(ret) != 1 {
-			return ErrInvalidProvider{reflect.TypeOf(dep.Provider)}
+			panic(ErrInvalidProvider{reflect.TypeOf(dep.Provider)})
 		}
 
 		inst := ret[0]
@@ -190,29 +188,22 @@ func (injector *Injector) Resolve(items ...interface{}) error {
 		if injector.dependencies[typ].Type == TypeSingleton {
 			injector.instances[typ] = inst
 		}
-
 	}
-
-	return nil
 }
 
-func (injector *Injector) Inject(fn interface{}) (Callable, error) {
+func (injector *Injector) Inject(fn interface{}) Callable {
 	val := reflect.ValueOf(fn)
 	typ := val.Type()
 
 	if typ.Kind() != reflect.Func {
-		return nil, ErrNoSuchCallable{typ}
+		panic(ErrNoSuchCallable{typ})
 	}
 
 	deps := make([]reflect.Value, typ.NumIn())
 	for i := 0; i < typ.NumIn(); i++ {
 		depVal := reflect.New(typ.In(i))
 		dep := depVal.Interface()
-
-		if err := injector.Resolve(dep); err != nil {
-			return nil, err
-		}
-
+		injector.Resolve(dep)
 		deps[i] = depVal.Elem()
 	}
 
@@ -225,7 +216,7 @@ func (injector *Injector) Inject(fn interface{}) (Callable, error) {
 		return outs
 	}
 
-	return injected, nil
+	return injected
 }
 
 type ErrNoSuchPtr struct {
