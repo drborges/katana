@@ -18,14 +18,29 @@ var (
 // It may assume two values: TypeSingleton or TypeNew
 type InjectableType string
 
-// Instance is an instance of a type provided by a registered provider function
-type Instance interface{}
-
 // Provider is a function that takes zero or more parameters and returns exactly one value
 type Provider interface{}
 
 // Callable wraps a provider function whose arguments have been resolved and injected
-type Callable func() []Instance
+// Returns Output holding zero or more resulting output
+type Callable func() Output
+
+// Output list of possible output results of a Callable
+type Output []interface{}
+
+// Empty returns true if the CallableOutput is empty, false otherwise
+func (out Output) Empty() bool {
+	return len(out) == 0
+}
+
+// First returns the first output of a call to a Callable
+func (out Output) First() interface{} {
+	if out.Empty() {
+		return nil
+	}
+
+	return out[0]
+}
 
 // ValidateProvider validates whether or not a given provider is valid
 // Providers must be callable a.k.a functions, taking zero or more arguments
@@ -65,7 +80,7 @@ type Injectable struct {
 // resolved exactly once cached for further use.
 type Injector struct {
 	injectables map[reflect.Type]*Injectable
-	instances   map[reflect.Type]Instance
+	instances   map[reflect.Type]interface{}
 	trace       *Trace
 }
 
@@ -73,7 +88,7 @@ type Injector struct {
 func New() *Injector {
 	return &Injector{
 		injectables: make(map[reflect.Type]*Injectable),
-		instances:   make(map[reflect.Type]Instance),
+		instances:   make(map[reflect.Type]interface{}),
 		trace:       &Trace{},
 	}
 }
@@ -93,6 +108,11 @@ func (injector *Injector) Clone() *Injector {
 func (injector *Injector) provide(injectable interface{}, injType InjectableType, p Provider) *Injector {
 	typ := reflect.TypeOf(injectable)
 
+	// If injectable is a pointer to an interface we need to work with the type
+	// pointed by the pointer instead.
+	//
+	// The resason is that in Go the way we can reference interfaces is by having
+	// a nil pointer to the corresponding interface like: (*MyInterface)(nil)
 	if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Interface {
 		typ = typ.Elem()
 	}
@@ -133,7 +153,7 @@ func (injector *Injector) ProvideSingleton(injectable interface{}, p Provider) *
 func (injector *Injector) Provide(instances ...interface{}) *Injector {
 	for _, instance := range instances {
 		injector.ProvideSingleton(instance, func(inst interface{}) Provider {
-			return func() Instance { return inst }
+			return func() interface{} { return inst }
 		}(instance))
 	}
 	return injector
@@ -155,28 +175,32 @@ func (injector *Injector) Resolve(refs ...interface{}) {
 		val := reflect.ValueOf(ref)
 		typ := val.Type()
 
+		// katana can only resolve references to types a.k.a pointers
+		// The reason is that once an instance of the requested type is
+		// resolved katana needs to set it back to the user defined variable
+		// passed as argument.
 		if typ.Kind() != reflect.Ptr {
 			panic(ErrNoSuchPtr{typ})
 		}
 
+		// The type we are going to work with from this point on is what the
+		// pointer is actually pointing to.
 		typ = typ.Elem()
 
-		// Checks whether there is a registered provider for the dependency
+		// Checks whether there is a registered provider for the type reference
 		injectable, registered := injector.injectables[typ]
 		if !registered {
 			panic(ErrNoSuchProvider{typ})
 		}
 
-		// Checks instances cache for previous resolved dependency in case it is a singleton one
-		if injectable.Type == TypeSingleton {
-			if inst, cached := injector.instances[typ]; cached {
-				// Resolves the dependency with the cached instance
-				val.Elem().Set(reflect.ValueOf(inst))
-				continue
-			}
+		// Checks whether there is a cached instance for the type reference
+		if inst, cached := injector.instances[typ]; cached {
+			// Resolves the dependency with the cached instance
+			val.Elem().Set(reflect.ValueOf(inst))
+			continue
 		}
 
-		// Add to the trace the current dependency type being resolved
+		// Add to the trace the current type reference being resolved
 		// so that cyclic dependencies may be detected
 		if err := injector.trace.Push(typ.String()); err != nil {
 			panic(err)
@@ -187,10 +211,10 @@ func (injector *Injector) Resolve(refs ...interface{}) {
 		inst := injector.Inject(injectable.Provider)()[0]
 		injector.trace.Pop()
 
-		// Resolves the dependency with the new instance
+		// Resolves the type reference with the new instance
 		val.Elem().Set(reflect.ValueOf(inst))
 
-		// Caches the instance in case the dependency is a singleton
+		// Caches the instance in case the injectable is a singleton
 		if injector.injectables[typ].Type == TypeSingleton {
 			injector.instances[typ] = inst
 		}
@@ -215,13 +239,13 @@ func (injector *Injector) Inject(fn interface{}) Callable {
 		args[i] = argVal.Elem()
 	}
 
-	callable := func() []Instance {
-		outVals := val.Call(args)
-		outs := make([]Instance, len(outVals))
-		for i, val := range outVals {
-			outs[i] = val.Interface()
+	callable := func() Output {
+		values := val.Call(args)
+		output := make(Output, len(values))
+		for i, val := range values {
+			output[i] = val.Interface()
 		}
-		return outs
+		return output
 	}
 
 	return callable

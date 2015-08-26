@@ -26,7 +26,7 @@ func TestTrace(t *testing.T) {
 
 				Convey("Then it returns a cyclic dependency error", func() {
 					So(err.Error(), should.Resemble, katana.ErrCyclicDependency{&katana.Trace{
-						[]string{"1", "2", "3", "2"},
+						Types: []string{"1", "2", "3", "2"},
 					}}.Error())
 				})
 			})
