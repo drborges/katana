@@ -115,10 +115,7 @@ func (injector *Injector) Clone() *Injector {
 	return newInjector
 }
 
-// ProvideNew provides a new instance of the registered injectable with all its dependencies (if any)
-// resolved by calling their corresponding provider functions.
-// Multiple calls to this method will yield a new result provided by the registered provider function
-func (injector *Injector) ProvideNew(injectable interface{}, p Provider) *Injector {
+func (injector *Injector) provide(injectable interface{}, injType InjectableType, p Provider) *Injector {
 	typ := reflect.TypeOf(injectable)
 
 	if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Interface {
@@ -134,11 +131,18 @@ func (injector *Injector) ProvideNew(injectable interface{}, p Provider) *Inject
 	}
 
 	injector.injectables[typ] = &Injectable{
-		Type:     TypeNew,
+		Type:     injType,
 		Provider: p,
 	}
 
 	return injector
+}
+
+// ProvideNew provides a new instance of the registered injectable with all its dependencies (if any)
+// resolved by calling their corresponding provider functions.
+// Multiple calls to this method will yield a new result provided by the registered provider function
+func (injector *Injector) ProvideNew(injectable interface{}, p Provider) *Injector {
+	return injector.provide(injectable, TypeNew, p)
 }
 
 // ProvideSingleton provides the same instance of the registered injectable with all its dependencies (if any)
@@ -146,26 +150,7 @@ func (injector *Injector) ProvideNew(injectable interface{}, p Provider) *Inject
 // The instance provided by the registered provider function is cached so that multiple calls to this
 // method yield the same result.
 func (injector *Injector) ProvideSingleton(injectable interface{}, p Provider) *Injector {
-	typ := reflect.TypeOf(injectable)
-
-	if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Interface {
-		typ = typ.Elem()
-	}
-
-	if _, registered := injector.injectables[typ]; registered {
-		panic(ErrProviderAlreadyRegistered{typ})
-	}
-
-	if err := ValidateProvider(p); err != nil {
-		panic(err)
-	}
-
-	injector.injectables[typ] = &Injectable{
-		Type:     TypeSingleton,
-		Provider: p,
-	}
-
-	return injector
+	return injector.provide(injectable, TypeSingleton, p)
 }
 
 // Provide is a short hand method that allows user defined instances to be injected as singletons
