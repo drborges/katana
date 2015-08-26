@@ -3,9 +3,11 @@
 test:
 	@go test ./... -v -run=$(grep)
 
+tdd:
+	@fswatch -o ./*.go | xargs -n1 -I{} make
+
 code-check:
 	@go fmt *.go
-	@go fmt -s -r '(a) -> a' -w *.go
 	@go fmt -s -r '(a) -> a' -w *.go
 	@go vet
 	@go fix
