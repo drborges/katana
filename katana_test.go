@@ -7,32 +7,22 @@ import (
 	"testing"
 )
 
-// @katana.New
-// @katana.Generate.PtrProvider
 type Dependency struct {
 	Field string
 }
 
-// @katana.Singleton
-// @katana.Generate.ValueProvider
-type DependencyB struct {
+type DependencyA struct {
 	Dep *Dependency
 }
 
-// @katana.Singleton
-// @katana.Generate.PtrProvider
-type DependencyA struct {
-	Dep *DependencyB
+type DependencyB struct {
+	Dep *DependencyA
 }
 
-// @katana.Singleton
-// @katana.Generate.PtrProvider
 type DependencyC struct {
 	Dep *DependencyD
 }
 
-// @katana.Singleton
-// @katana.Generate.PtrProvider
 type DependencyD struct {
 	Dep *DependencyC
 }
@@ -53,22 +43,15 @@ func (dep *InterfaceDependencyImpl) Method1() string {
 func (dep *InterfaceDependencyImpl) Method2() {}
 
 func TestKatanaProvideValues(t *testing.T) {
-	type DepA struct {
-		Field string
-	}
-	type DepB struct {
-		Field string
-	}
-
 	Convey("Given I have an instance of katana injector with a few value providers", t, func() {
-		depA := &DepA{}
-		depB := DepB{}
+		depA := &Dependency{}
+		depB := Dependency{}
 
 		injector := katana.New().Provide(depA, depB)
 
 		Convey("When I resolve instances of the provided values", func() {
-			var depA1, depA2 *DepA
-			var depB1, depB2 DepB
+			var depA1, depA2 *Dependency
+			var depB1, depB2 Dependency
 
 			injector.Resolve(&depA1, &depA2, &depB1, &depB2)
 
@@ -105,12 +88,12 @@ func TestKatanaProvideNewInstance(t *testing.T) {
 			return &Dependency{}
 		})
 
-		injector.ProvideNew(&DependencyB{}, func(dep *Dependency) *DependencyB {
-			return &DependencyB{dep}
+		injector.ProvideNew(&DependencyA{}, func(dep *Dependency) *DependencyA {
+			return &DependencyA{dep}
 		})
 
 		Convey("When I resolve multiple instances of *DependencyB which depends on *Dependency", func() {
-			var dep1, dep2 *DependencyB
+			var dep1, dep2 *DependencyA
 			injector.Resolve(&dep1, &dep2)
 
 			Convey("Then the resolved dependencies point to different memory addresses", func() {
@@ -183,18 +166,18 @@ func TestKatanaProvidesNewInstanceOfInterfaceType(t *testing.T) {
 
 func TestKatanaResolvesTransitiveDependencies(t *testing.T) {
 	Convey("Given I have transitive dependencies", t, func() {
-		injector := katana.New().ProvideNew(&DependencyA{}, func(dep *DependencyB) *DependencyA {
-			return &DependencyA{dep}
+		injector := katana.New().ProvideNew(&DependencyB{}, func(dep *DependencyA) *DependencyB {
+			return &DependencyB{dep}
 		})
 
-		injector.ProvideNew(&DependencyB{}, func(dep *Dependency) *DependencyB {
-			return &DependencyB{dep}
+		injector.ProvideNew(&DependencyA{}, func(dep *Dependency) *DependencyA {
+			return &DependencyA{dep}
 		})
 
 		injector.Provide(&Dependency{})
 
 		Convey("When I resolve the root dep", func() {
-			var depA *DependencyA
+			var depA *DependencyB
 			injector.Resolve(&depA)
 
 			Convey("Then all dependencies are resolved recursively", func() {

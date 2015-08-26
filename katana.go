@@ -31,9 +31,8 @@ func ValidateProvider(provider Provider) error {
 }
 
 type Dependency struct {
-	Type             InstanceType
-	Provider         Provider
-	InjectedProvider Callable
+	Type     InstanceType
+	Provider Provider
 }
 
 type Trace []string
@@ -170,26 +169,10 @@ func (injector *Injector) Resolve(items ...interface{}) {
 			panic(err)
 		}
 
-		// In case that there is a provider for the current item and it is not a singleton one
-		// a.k.a provides a fresh new instance of the dependency, the provider arguments are resolved and
-		// injected into the provider returning a closure that when executed returns the requested dependency
-		// That ensures the provided dependency will be fresh new as well as any of its dependencies
-		//
-		// In case of a singleton provider the arguments are resolved only once and cache within the
-		// injected provider closure
-		if dep.Type == TypeNewInstance || dep.InjectedProvider == nil {
-			injectedProvider := injector.Inject(dep.Provider)
-			dep.InjectedProvider = injectedProvider
-		}
-
-		ret := dep.InjectedProvider()
+		// Resolves the provider arguments -- if any -- as dependencies returning
+		// a closure with the resolved arguments injected
+		inst := injector.Inject(dep.Provider)()[0]
 		injector.trace.Reset()
-
-		if len(ret) != 1 {
-			panic(ErrInvalidProvider{reflect.TypeOf(dep.Provider)})
-		}
-
-		inst := ret[0]
 
 		// Resolves the dependency with the new instance
 		val.Elem().Set(reflect.ValueOf(inst))
