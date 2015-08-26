@@ -233,13 +233,6 @@ func TestKatanaDetectsCyclicDependencies(t *testing.T) {
 
 			Convey("Then all dependencies are resolved recursively", func() {
 				So(resolveWithCyclicDependency, should.Panic)
-
-				// TODO write a test case to ensure cyclic dependency error is properly built
-				//	katana.ErrCyclicDependency{katana.Trace{
-				//		reflect.TypeOf(&DependencyC{}).String(),
-				//		reflect.TypeOf(&DependencyD{}).String(),
-				//		reflect.TypeOf(&DependencyC{}).String(),
-				//	}
 			})
 		})
 	})

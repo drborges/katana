@@ -3,7 +3,6 @@ package katana
 import (
 	"fmt"
 	"reflect"
-	"strings"
 )
 
 var (
@@ -51,25 +50,6 @@ func ValidateProvider(provider Provider) error {
 type Injectable struct {
 	Type     InjectableType
 	Provider Provider
-}
-
-// Trace keeps track of the current dependency graph under resolution watching out for
-// cyclic dependencies.
-// TODO merge trace and stack code into a separate file
-type Trace struct {
-	Stack
-}
-
-// Add adds a dependency type under resolution returning an ErrCyclicDependency in case
-// of a cyclic dependency is detected, returns nil otherwise.
-func (trace *Trace) Add(typ reflect.Type) (err error) {
-	if trace.Contains(typ.String()) {
-		defer trace.Reset()
-		trace.Push(typ.String())
-		return ErrCyclicDependency{trace}
-	}
-	trace.Push(typ.String())
-	return err
 }
 
 // Injector is katana's DI implementation driven by typed provider functions.
@@ -198,7 +178,7 @@ func (injector *Injector) Resolve(refs ...interface{}) {
 
 		// Add to the trace the current dependency type being resolved
 		// so that cyclic dependencies may be detected
-		if err := injector.trace.Add(typ); err != nil {
+		if err := injector.trace.Push(typ.String()); err != nil {
 			panic(err)
 		}
 
@@ -276,7 +256,7 @@ type ErrCyclicDependency struct {
 }
 
 func (err ErrCyclicDependency) Error() string {
-	return fmt.Sprintf("Cyclic dependency detected: [%v]", strings.Join(err.Trace.items, " -> "))
+	return fmt.Sprintf("Cyclic dependency detected: %v", err.Trace)
 }
 
 type ErrInvalidProvider struct {
