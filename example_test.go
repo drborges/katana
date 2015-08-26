@@ -35,27 +35,34 @@ func TestKatanaAPI(t *testing.T) {
 		CacheTTL:     20000,
 	}
 
-	// Registers a provider for the given instance. This type of provider returns the same object in case of registering a pointer
-	// or a copy of the object in case of a value
+	// Registers a provider for the given instance. This type of provider returns the same object
+	// in case of registering a pointer or a copy of the object in case of a value
 	injector.Provide(config)
 
 	injector.ProvideNew(&Cache{}, func(config Config) *Cache {
 		return &Cache{config.CacheTTL}
 	})
 
-	// The provider below provides a new instance of *Datastore whenever it is requested. Its resolved instance is never cached and subsequent resolution calls of the same type will always call the provider function.
+	// The provider below provides a new instance of *Datastore whenever it is requested.
+	//
+	// All datastore dependencies -- Config, *Cache -- are injected into the provider function
+	// when a client requests a new instance.
+	//
+	// Its resolved instance is never cached and subsequent resolution calls will always yield
+	// a new instance created by its provider function.
 	injector.ProvideNew(&Datastore{}, func(config Config, cache *Cache) *Datastore {
 		return &Datastore{cache, config.DatastoreURL}
 	})
 
-	// A singleton provider is called at most once and its resolved value is then cached so further requests yield the same result.
+	// A singleton provider is called at most once and its resolved value is then cached so
+	// further requests yield the same result.
 	injector.ProvideSingleton(&AccountService{}, func(db *Datastore) *AccountService {
 		return &AccountService{db}
 	})
 
 	var service1, service2 *AccountService
 
-	// service1 and service2 will hold the same value since the provider for *AccountService is a singleton one
+	// service1 and service2 will hold the same value since the provider for *AccountService is a singleton
 	injector.Resolve(&service1, &service2)
 
 	// service dependencies resolved, enjoy! ;)
