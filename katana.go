@@ -102,8 +102,9 @@ func (injector *Injector) Clone() *Injector {
 		newInjector.injectables[t] = p
 	}
 
-	// TODO copy instances cache to the new copy instances hold singleton instances which should be
-	// available to other injector copies too (otherwise they would not be singletons?)
+	for t, i := range injector.instances {
+		newInjector.instances[t] = i
+	}
 
 	return newInjector
 }
@@ -151,8 +152,6 @@ func (injector *Injector) ProvideSingleton(injectable interface{}, p Provider) *
 	return injector.provide(injectable, TypeSingleton, p)
 }
 
-// TODO Make it be a TypeNew injectable instead of TypSingleton. This method is extremely helpful
-// for registering request bound types like http.ResponseWriter, *http.Request which can not be singletons
 // Provide is a short hand method that allows user defined instances to be injected as singletons
 // Under the hood a singleton provider function is created for each user defined instance.
 func (injector *Injector) Provide(instances ...interface{}) *Injector {
@@ -177,6 +176,8 @@ func (injector *Injector) Provide(instances ...interface{}) *Injector {
 // injector.Resolve(&acc)
 func (injector *Injector) Resolve(refs ...interface{}) {
 	for _, ref := range refs {
+		// TODO check for zero values
+		// Zero values will panic when calling val.Type
 		val := reflect.ValueOf(ref)
 		typ := val.Type()
 

@@ -28,21 +28,16 @@ type DependencyD struct {
 }
 
 type InterfaceDependency interface {
-	Method1() string
-	Method2()
+	DoStuff()
 }
 
 type InterfaceDependencyImpl struct {
 	Field string
 }
 
-func (dep *InterfaceDependencyImpl) Method1() string {
-	return "method 1"
-}
+func (dep *InterfaceDependencyImpl) DoStuff() {}
 
-func (dep *InterfaceDependencyImpl) Method2() {}
-
-func TestKatanaProvideValues(t *testing.T) {
+func TestKatanaProvide(t *testing.T) {
 	Convey("Given I have an instance of katana injector with a few value providers", t, func() {
 		depA := &Dependency{}
 		depB := Dependency{}
@@ -56,12 +51,13 @@ func TestKatanaProvideValues(t *testing.T) {
 			injector.Resolve(&depA1, &depA2, &depB1, &depB2)
 
 			Convey("Then instances of the same type are the same", func() {
-				So(depB1, should.NotBeNil)
-				So(depB2, should.NotBeNil)
-				So(depB1, should.Resemble, depB2)
 				So(depA1, should.NotBeNil)
 				So(depA2, should.NotBeNil)
 				So(depA1, should.Equal, depA2)
+				So(depB1, should.NotBeNil)
+				So(depB2, should.NotBeNil)
+				So(depB1, should.NotEqual, depB2)
+				So(depB1, should.Resemble, depB2)
 			})
 		})
 	})
@@ -278,6 +274,54 @@ func TestProviderAlreadyRegistered(t *testing.T) {
 
 			Convey("Then it fails with an already registered provider", func() {
 				So(alreadyRegisteredProvider, should.Panic)
+			})
+		})
+	})
+}
+
+func TestInjectorClone(t *testing.T) {
+	Convey("Given I have an injector with a few injectables and cached instances", t, func() {
+		injector := katana.New()
+
+		injector.Provide(&DependencyB{})
+
+		injector.ProvideNew(&Dependency{}, func() *Dependency {
+			return &Dependency{}
+		})
+
+		injector.ProvideSingleton(&DependencyA{}, func(dep *Dependency) *DependencyA {
+			return &DependencyA{dep}
+		})
+
+		Convey("When I clone the injector", func() {
+			newInjector := injector.Clone()
+
+			Convey("Then the new injector inherits the original injector providers", func() {
+				var dep *Dependency
+				var depA *DependencyA
+				var depB *DependencyB
+				newInjector.Resolve(&dep, &depA, &depB)
+
+				So(dep, should.NotBeNil)
+				So(depA, should.NotBeNil)
+				So(depB, should.NotBeNil)
+			})
+
+			Convey("And I register new providers with the new injector", func() {
+				newInjector.ProvideSingleton((*InterfaceDependency)(nil), func() InterfaceDependency {
+					return &InterfaceDependencyImpl{}
+				})
+
+				Convey("Then the provider is available only in the cloned injector", func() {
+					var dep1, dep2 InterfaceDependency
+					newInjector.Resolve(&dep1)
+
+					So(dep1, should.NotBeNil)
+
+					resolveWithOriginalInjector := func () { injector.Resolve(&dep2) }
+
+					So(resolveWithOriginalInjector, should.Panic)
+				})
 			})
 		})
 	})
