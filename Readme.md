@@ -6,7 +6,7 @@ Dependency Injection package driven by provider functions
 
 katana approaches DI in a fairly simple manner. For each type that needs to be available for injection a provider function needs to be implemented and registered with an instance of `kanata.Injector`. Providers construct instances of a particular type a.k.a `Injectable` and can be of two types: `katana.TypeNew` and `katana.TypeSingleton`.
 
-Provider functions are like constructor functions, they may take arguments representing the required dependencies to create an instance of the provided injectable and return a single value, the actual instance. Here is an example:
+Provider functions are like [constructor functions](https://golang.org/doc/effective_go.html#composite_literals), they may take arguments representing the required dependencies to create an instance of that injectable and return a single value, the actual instance. Here is an example:
 
 ```go
 func NewUserService(depA *DependencyA, depB *DependencyB) *UserService {
@@ -19,6 +19,7 @@ Once a provider is registered the corresponding injectable can be resolved and i
 ```go
 // Get an instance of katana's injector
 injector := katana.New()
+
 // Register the provider of *UserService with the injector
 injector.ProvideNew(&UserService{}, NewUserService)
 
@@ -27,9 +28,7 @@ var service *UserService
 injector.Resolve(&service)
 ```
 
-
-
-Katana will detect and panic upon any eventual `cyclic dependency` when resolving an instance of a type providing the cyclic dependency graph so you can easily troubleshoot.
+Katana will detect and panic upon any eventual `cyclic dependency` when resolving an injectable, providing the cyclic dependency graph so you can easily troubleshoot.
 
 ## Some More Examples
 
@@ -56,7 +55,7 @@ type AccountService struct {
 }
 ```
 
-A provider for each type is created and registered with a new instance of `katana.Injector`
+A provider for each type of injectable is created and registered with a new instance of `katana.Injector`
 
 ```go
 // Grabs a new instance of katana.Injector
