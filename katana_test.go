@@ -202,7 +202,7 @@ type DepD struct {
 	dep *DepC
 }
 
-func TestKatanaDetectsCyclicDependencies(t *testing.T) {
+func TestErrCyclicDependency(t *testing.T) {
 
 	Convey("Given I have cyclic dependencies", t, func() {
 		injector := katana.New().ProvideNew(&DepA{}, func(depB *DepB, depD *DepD) *DepA {
@@ -234,7 +234,7 @@ func TestKatanaDetectsCyclicDependencies(t *testing.T) {
 	})
 }
 
-func TestInvalidProviderFunction(t *testing.T) {
+func TestErrInvalidProvider(t *testing.T) {
 	// TODO write test case to catch whether the error is properly built
 	Convey("Given I have a provider function with no return value for a given dependency", t, func() {
 		invalidProvider := func() {
@@ -259,7 +259,7 @@ func TestInvalidProviderFunction(t *testing.T) {
 	})
 }
 
-func TestProviderAlreadyRegistered(t *testing.T) {
+func TestErrProviderAlreadyRegistered(t *testing.T) {
 	Convey("Given I have a provider registered for a given dependency", t, func() {
 		injector := katana.New().ProvideNew(&DependencyC{}, func() *DependencyC {
 			return &DependencyC{}
@@ -275,6 +275,21 @@ func TestProviderAlreadyRegistered(t *testing.T) {
 			Convey("Then it fails with an already registered provider", func() {
 				So(alreadyRegisteredProvider, should.Panic)
 			})
+		})
+	})
+}
+
+func TestErrInvalidReference(t *testing.T) {
+	Convey("Given I have a provider registered for a given dependency", t, func() {
+		injector := katana.New().ProvideNew(Dependency{}, func() *Dependency {
+			return &Dependency{}
+		})
+
+		Convey("Then it panics resolving a reference that is a zero value", func() {
+			var ref *Dependency
+			resolvingZeroValue := func() { injector.Resolve(ref) }
+
+			So(resolvingZeroValue, should.Panic)
 		})
 	})
 }

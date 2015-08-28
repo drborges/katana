@@ -176,8 +176,6 @@ func (injector *Injector) Provide(instances ...interface{}) *Injector {
 // injector.Resolve(&acc)
 func (injector *Injector) Resolve(refs ...interface{}) {
 	for _, ref := range refs {
-		// TODO check for zero values
-		// Zero values will panic when calling val.Type
 		val := reflect.ValueOf(ref)
 		typ := val.Type()
 
@@ -187,6 +185,10 @@ func (injector *Injector) Resolve(refs ...interface{}) {
 		// passed as argument.
 		if typ.Kind() != reflect.Ptr {
 			panic(ErrNoSuchPtr{typ})
+		}
+
+		if val.IsNil() {
+			panic(ErrNilValue{typ})
 		}
 
 		// The type we are going to work with from this point on is what the
@@ -262,7 +264,15 @@ type ErrNoSuchPtr struct {
 }
 
 func (err ErrNoSuchPtr) Error() string {
-	return fmt.Sprintf("Cannot resolve %v. Expected a pointer or an interface.", err.Type.Kind())
+	return fmt.Sprintf("Cannot resolve %v. Expected a pointer to a variable.", err.Type.Kind())
+}
+
+type ErrNilValue struct {
+	Type reflect.Type
+}
+
+func (err ErrNilValue) Error() string {
+	return fmt.Sprintf("Cannot resolve nil value %v. Expected a pointer to a variable.", err.Type.Kind())
 }
 
 type ErrNoSuchCallable struct {
