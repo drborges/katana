@@ -1,10 +1,10 @@
 # Katana [![Build Status](https://travis-ci.org/drborges/katana.svg?branch=master)](https://travis-ci.org/drborges/katana)
 
-Dependency Injection Driven By Provider Functions
+Dependency Injection Driven By Constructor Functions
 
 ## Brief Overview
 
-katana approaches DI in a fairly simple manner. For each type that needs to be available for injection a provider function needs to be implemented and registered with an instance of `kanata.Injector`. Providers construct instances of a particular type a.k.a `Injectable` and can be of two types: `katana.TypeNew` and `katana.TypeSingleton`.
+katana approaches DI in a fairly simple manner. For each type that needs to be available for injection -- a.k.a `injectable` -- a [constructor function](https://golang.org/doc/effective_go.html#composite_literals) needs to be registered with an instance of `kanata.Injector`.
 
 Provider functions are like [constructor functions](https://golang.org/doc/effective_go.html#composite_literals), they may take arguments representing the required dependencies to create an instance of that injectable and return a single value, the actual instance. Here is an example:
 
@@ -20,7 +20,7 @@ Once a provider is registered the corresponding injectable can be resolved and i
 // Get an instance of katana's injector
 injector := katana.New()
 
-// Register the provider of *UserService with the injector
+// Register a constructor function to provide instances of *UserService
 injector.ProvideNew(&UserService{}, NewUserService)
 
 // Grab a new instance of *UserService with all its dependencies injected
@@ -55,33 +55,31 @@ type AccountService struct {
 }
 ```
 
-A provider for each type of injectable is created and registered with a new instance of `katana.Injector`
+A constructor function for each type of injectable is created and registered with a new instance of `katana.Injector`
 
 ```go
 // Grabs a new instance of katana.Injector
 injector := katana.New()
 
-// Registers a provider for config. Katana will resolve dependencies on Config by
-// setting them to this particular instance.
+// Registers the given instance of Config to be provided as a singleton injectable
 injector.Provide(Config{
 	DatastoreURL: "https://myawesomestartup.com/db",
 	CacheTTL:     20000,
 })
 
-// Registers a provider for *Cache whose result is never cached, which means
-// different requests for an instance of *Cache will yield different instances.
+// Registers a constructor function that always provides a new instance of *Cache
 injector.ProvideNew(&Cache{}, func(config Config) *Cache {
 	return &Cache{config.CacheTTL}
 })
 
-// Registers a provider for *Datastore with all its dependencies (Config, *Cache)
-// being resolved and injected into the provider function.
+// Registers a constructor function that always provides a new instance of *Datastore
+// resolving its dependencies -- Config and *Cache -- as part of the process
 injector.ProvideNew(&Datastore{}, func(config Config, cache *Cache) *Datastore {
 	return &Datastore{cache, config.DatastoreURL}
 })
 
-// Registers a singleton provider for *AccountService. The instance provided by
-// a singleton provider is cached so further requests yield the same result.
+// Registers a constructor function that always provides the same instance of *AccountService
+// resolving its dependencies -- *Datastore -- as part of the process
 injector.ProvideSingleton(&AccountService{}, func(db *Datastore) *AccountService {
 	return &AccountService{db}
 })
@@ -149,4 +147,18 @@ if result := fetchAllAccounts(); !result.Empty() {
 
 # Contributing
 
+Please feel free to submit issues, fork the repository and send pull requests!
+
+When submitting an issue, please include a test function that reproduces the issue, that will help a lot to reduce back and forth :~
+
 # License
+
+The MIT License (MIT)
+
+Copyright (c) 2015 Diego da Rocha Borges
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
