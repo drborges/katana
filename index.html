@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="Katana : Dependency Injection package driven by provider functions">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Katana</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/drborges/katana">View on GitHub</a>
+
+          <h1 id="project_title">Katana</h1>
+          <h2 id="project_tagline">Dependency Injection package driven by provider functions</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/drborges/katana/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/drborges/katana/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a id="katana-" class="anchor" href="#katana-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Katana <a href="https://travis-ci.org/drborges/katana"><img src="https://travis-ci.org/drborges/katana.svg?branch=master" alt="Build Status"></a>
+</h1>
+
+<p>Dependency Injection package driven by provider functions</p>
+
+<h2>
+<a id="brief-overview" class="anchor" href="#brief-overview" aria-hidden="true"><span class="octicon octicon-link"></span></a>Brief Overview</h2>
+
+<p>katana approaches DI in a fairly simple manner. For each type that needs to be available for injection a provider function needs to be implemented and registered with an instance of <code>kanata.Injector</code>. Providers construct instances of a particular type a.k.a <code>Injectable</code> and can be of two types: <code>katana.TypeNew</code> and <code>katana.TypeSingleton</code>.</p>
+
+<p>Provider functions are like <a href="https://golang.org/doc/effective_go.html#composite_literals">constructor functions</a>, they may take arguments representing the required dependencies to create an instance of that injectable and return a single value, the actual instance. Here is an example:</p>
+
+<div class="highlight highlight-go"><pre><span class="pl-k">func</span> <span class="pl-en">NewUserService</span>(<span class="pl-v">depA</span> *<span class="pl-v">DependencyA</span>, <span class="pl-v">depB</span> *<span class="pl-v">DependencyB</span>) *<span class="pl-v">UserService</span> {
+    <span class="pl-k">return</span> &amp;UserService{depA, depB}
+}</pre></div>
+
+<p>Once a provider is registered the corresponding injectable can be resolved and injected as dependency into other injectable providers, or even into arbitrary functions. Lets see how that translates into code:</p>
+
+<div class="highlight highlight-go"><pre><span class="pl-c">// Get an instance of katana's injector</span>
+<span class="pl-smi">injector</span> <span class="pl-k">:=</span> katana.<span class="pl-c1">New</span>()
+
+<span class="pl-c">// Register the provider of *UserService with the injector</span>
+injector.<span class="pl-c1">ProvideNew</span>(&amp;UserService{}, <span class="pl-v">NewUserService</span>)
+
+<span class="pl-c">// Grab a new instance of *UserService with all its dependencies injected</span>
+<span class="pl-k">var</span> <span class="pl-smi">service</span> *UserService
+injector.<span class="pl-c1">Resolve</span>(&amp;service)</pre></div>
+
+<p>Katana will detect and panic upon any eventual <code>cyclic dependency</code> when resolving an injectable, providing the cyclic dependency graph so you can easily troubleshoot.</p>
+
+<h2>
+<a id="example" class="anchor" href="#example" aria-hidden="true"><span class="octicon octicon-link"></span></a>Example</h2>
+
+<p>Lets say you have the following types each with their own dependencies:</p>
+
+<div class="highlight highlight-go"><pre><span class="pl-k">type</span> <span class="pl-v">Config</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">DatastoreURL</span> <span class="pl-k">string</span>
+    <span class="pl-v">CacheTTL</span>     <span class="pl-k">int</span>
+    <span class="pl-v">Debug</span>        <span class="pl-k">bool</span>
+}
+
+<span class="pl-k">type</span> <span class="pl-v">Cache</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">TTL</span> <span class="pl-k">int</span>
+}
+
+<span class="pl-k">type</span> <span class="pl-v">Datastore</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">Cache</span> *Cache
+    <span class="pl-v">URL</span>   <span class="pl-k">string</span>
+}
+
+<span class="pl-k">type</span> <span class="pl-v">AccountService</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">Datastore</span> *Datastore
+}</pre></div>
+
+<p>A provider for each type of injectable is created and registered with a new instance of <code>katana.Injector</code></p>
+
+<div class="highlight highlight-go"><pre><span class="pl-c">// Grabs a new instance of katana.Injector</span>
+<span class="pl-smi">injector</span> <span class="pl-k">:=</span> katana.<span class="pl-c1">New</span>()
+
+<span class="pl-c">// Registers a provider for config. Katana will resolve dependencies on Config by</span>
+<span class="pl-c">// setting them to this particular instance.</span>
+injector.<span class="pl-c1">Provide</span>(Config{
+    <span class="pl-v">DatastoreURL</span>: <span class="pl-s"><span class="pl-pds">"</span>https://myawesomestartup.com/db<span class="pl-pds">"</span></span>,
+    <span class="pl-v">CacheTTL</span>:     <span class="pl-c1">20000</span>,
+})
+
+<span class="pl-c">// Registers a provider for *Cache whose result is never cached, which means</span>
+<span class="pl-c">// different requests for an instance of *Cache will yield different instances.</span>
+injector.<span class="pl-c1">ProvideNew</span>(&amp;Cache{}, <span class="pl-c1">func</span>(config <span class="pl-v">Config</span>) *Cache {
+    <span class="pl-k">return</span> &amp;Cache{config.<span class="pl-smi">CacheTTL</span>}
+})
+
+<span class="pl-c">// Registers a provider for *Datastore with all its dependencies (Config, *Cache)</span>
+<span class="pl-c">// being resolved and injected into the provider function.</span>
+injector.<span class="pl-c1">ProvideNew</span>(&amp;Datastore{}, <span class="pl-c1">func</span>(config <span class="pl-v">Config</span>, cache *Cache) *Datastore {
+    <span class="pl-k">return</span> &amp;Datastore{cache, config.<span class="pl-smi">DatastoreURL</span>}
+})
+
+<span class="pl-c">// Registers a singleton provider for *AccountService. The instance provided by</span>
+<span class="pl-c">// a singleton provider is cached so further requests yield the same result.</span>
+injector.<span class="pl-c1">ProvideSingleton</span>(&amp;AccountService{}, <span class="pl-c1">func</span>(db *Datastore) *AccountService {
+    <span class="pl-k">return</span> &amp;AccountService{db}
+})</pre></div>
+
+<p>Finally you can get instances of the provided <code>injectables</code> with all their dependencies -- if any -- resolved:</p>
+
+<div class="highlight highlight-go"><pre><span class="pl-k">var</span> <span class="pl-smi">service1</span>, <span class="pl-smi">service2</span> *AccountService
+<span class="pl-k">var</span> <span class="pl-smi">db1</span>, <span class="pl-smi">db2</span> *Datastore
+<span class="pl-k">var</span> <span class="pl-smi">cache1</span>, <span class="pl-smi">cache2</span> *Cache
+<span class="pl-k">var</span> <span class="pl-smi">config</span> <span class="pl-v">Config</span>
+
+<span class="pl-c">// Katana allows you to resolve multiple instances on a single "shot"</span>
+<span class="pl-c">// </span>
+<span class="pl-c">// Note that:</span>
+<span class="pl-c">// 1. service1 == service2: *AccountService provider is a singleton</span>
+<span class="pl-c">// 2. db1 != db2: *Datastore injectable is not singleton</span>
+<span class="pl-c">// 3. cache1 != cache2: *Cache is not a singleton</span>
+<span class="pl-c">// 4. config will point to the Config instance defined in the previous code block, since it was provided using Injector#Provide method.</span>
+injector.<span class="pl-c1">Resolve</span>(&amp;service1, &amp;service2, &amp;db1, &amp;db2, &amp;cache1, &amp;cache2, &amp;config)</pre></div>
+
+<h1>
+<a id="thread-safety" class="anchor" href="#thread-safety" aria-hidden="true"><span class="octicon octicon-link"></span></a>Thread-Safety</h1>
+
+<p>In order to use <code>katana</code> in a <code>multi-thread</code> environment you should use a copy of the injector per thread.</p>
+
+<p>Copies of <code>katana.Injector</code> can be created using <code>Injector.Clone()</code>. This copy will have all the registered providers of the original injector and every new provider registered in the new copy will not be available to other copies of <code>katana.Injector</code>.</p>
+
+<p><strong>Note</strong> Singleton providers will still yield the same instances across different threads.</p>
+
+<h3>
+<a id="example-http-server" class="anchor" href="#example-http-server" aria-hidden="true"><span class="octicon octicon-link"></span></a>Example: HTTP Server</h3>
+
+<p>Assuming we have the injector instance from the example above ^</p>
+
+<div class="highlight highlight-go"><pre>http.<span class="pl-c1">HandleFunc</span>(<span class="pl-s"><span class="pl-pds">"</span>/bar<span class="pl-pds">"</span></span>, <span class="pl-c1">func</span>(w http.<span class="pl-smi">ResponseWriter</span>, r *http.<span class="pl-smi">Request</span>) {
+    <span class="pl-k">var</span> <span class="pl-smi">service</span> *AccountService
+    injector.<span class="pl-c1">Clone</span>().<span class="pl-c1">Provide</span>(w, r).<span class="pl-c1">Resolve</span>(&amp;service)
+})
+
+log.<span class="pl-c1">Fatal</span>(http.<span class="pl-c1">ListenAndServe</span>(<span class="pl-s"><span class="pl-pds">"</span>:8080<span class="pl-pds">"</span></span>, <span class="pl-c1">nil</span>))</pre></div>
+
+<h1>
+<a id="injecting-function-arguments" class="anchor" href="#injecting-function-arguments" aria-hidden="true"><span class="octicon octicon-link"></span></a>Injecting Function Arguments</h1>
+
+<p>Katana also allows you to inject arguments into functions (that is how it resolves the arguments of a injectable provider):</p>
+
+<div class="highlight highlight-go"><pre><span class="pl-smi">fetchAllAccounts</span> <span class="pl-k">:=</span> injector.<span class="pl-c1">Inject</span>(<span class="pl-k">func</span><span class="pl-en">(<span class="pl-v">srv</span> *<span class="pl-v">AccountService</span>, <span class="pl-v">conf</span> <span class="pl-v">Config</span>) </span>([]*<span class="pl-v">Account</span>, <span class="pl-v">error</span>) {
+    <span class="pl-k">if</span> conf.<span class="pl-smi">Debug</span> {
+        <span class="pl-k">return</span> mocks.<span class="pl-c1">Accounts</span>(), <span class="pl-c1">nil</span>
+    }
+    <span class="pl-k">return</span> srv.<span class="pl-c1">Accounts</span>()
+})</pre></div>
+
+<p><code>Injector#Inject</code> returns a closure holding all the resolved function arguments and when called returns a <code>katana.Output</code> with the function returning values.</p>
+
+<div class="highlight highlight-go"><pre><span class="pl-k">if</span> <span class="pl-smi">result</span> <span class="pl-k">:=</span> <span class="pl-c1">fetchAllAccounts</span>(); !result.<span class="pl-c1">Empty</span>() {
+    <span class="pl-smi">accounts</span>, <span class="pl-smi">err</span> <span class="pl-k">:=</span> result[<span class="pl-c1">0</span>], result[<span class="pl-c1">1</span>]
+}</pre></div>
+
+<h1>
+<a id="contributing" class="anchor" href="#contributing" aria-hidden="true"><span class="octicon octicon-link"></span></a>Contributing</h1>
+
+<h1>
+<a id="license" class="anchor" href="#license" aria-hidden="true"><span class="octicon octicon-link"></span></a>License</h1>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Katana maintained by <a href="https://github.com/drborges">drborges</a></p>
+        <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
