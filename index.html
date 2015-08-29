@@ -20,7 +20,7 @@
     <header>
       <div class="inner">
         <h1>Katana</h1>
-        <h2>Dependency Injection package driven by provider functions</h2>
+        <h2>Dependency Injection driven by constructor functions</h2>
         <a href="https://github.com/drborges/katana" class="button"><small>View project on</small> GitHub</a>
       </div>
     </header>
@@ -38,8 +38,6 @@
 <a id="brief-overview" class="anchor" href="#brief-overview" aria-hidden="true"><span class="octicon octicon-link"></span></a>Brief Overview</h2>
 
 <p>katana approaches DI in a fairly simple manner. For each type that needs to be available for injection -- a.k.a <code>injectable</code> -- a <a href="https://golang.org/doc/effective_go.html#composite_literals">constructor function</a> needs to be registered with an instance of <code>kanata.Injector</code>.</p>
-
-<p>Provider functions are like <a href="https://golang.org/doc/effective_go.html#composite_literals">constructor functions</a>, they may take arguments representing the required dependencies to create an instance of that injectable and return a single value, the actual instance. Here is an example:</p>
 
 <div class="highlight highlight-go"><pre><span class="pl-k">func</span> <span class="pl-en">NewUserService</span>(<span class="pl-v">depA</span> *<span class="pl-v">DependencyA</span>, <span class="pl-v">depB</span> *<span class="pl-v">DependencyB</span>) *<span class="pl-v">UserService</span> {
     <span class="pl-k">return</span> &amp;UserService{depA, depB}
@@ -204,6 +202,16 @@ log.<span class="pl-c1">Fatal</span>(http.<span class="pl-c1">ListenAndServe</sp
       </div>
     </div>
 
-  
+            <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-66913152-1");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
   </body>
 </html>
