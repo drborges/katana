@@ -1,37 +1,34 @@
 <!DOCTYPE html>
 <html>
-
   <head>
     <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="description" content="Katana : Dependency Injection package driven by provider functions">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
 
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
 
-    <title>Katana</title>
+    <title>Katana by drborges</title>
   </head>
 
   <body>
+    <header>
+      <div class="inner">
+        <h1>Katana</h1>
+        <h2>Dependency Injection package driven by provider functions</h2>
+        <a href="https://github.com/drborges/katana" class="button"><small>View project on</small> GitHub</a>
+      </div>
+    </header>
 
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/drborges/katana">View on GitHub</a>
-
-          <h1 id="project_title">Katana</h1>
-          <h2 id="project_tagline">Dependency Injection package driven by provider functions</h2>
-
-            <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/drborges/katana/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/drborges/katana/tarball/master">Download this project as a tar.gz file</a>
-            </section>
-        </header>
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
-        <h1>
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+        <section id="main-content">
+          <h1>
 <a id="katana-" class="anchor" href="#katana-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Katana <a href="https://travis-ci.org/drborges/katana"><img src="https://travis-ci.org/drborges/katana.svg?branch=master" alt="Build Status"></a>
 </h1>
 
@@ -40,7 +37,7 @@
 <h2>
 <a id="brief-overview" class="anchor" href="#brief-overview" aria-hidden="true"><span class="octicon octicon-link"></span></a>Brief Overview</h2>
 
-<p>katana approaches DI in a fairly simple manner. For each type that needs to be available for injection a provider function needs to be implemented and registered with an instance of <code>kanata.Injector</code>. Providers construct instances of a particular type a.k.a <code>Injectable</code> and can be of two types: <code>katana.TypeNew</code> and <code>katana.TypeSingleton</code>.</p>
+<p>katana approaches DI in a fairly simple manner. For each type that needs to be available for injection -- a.k.a <code>injectable</code> -- a <a href="https://golang.org/doc/effective_go.html#composite_literals">constructor function</a> needs to be registered with an instance of <code>kanata.Injector</code>.</p>
 
 <p>Provider functions are like <a href="https://golang.org/doc/effective_go.html#composite_literals">constructor functions</a>, they may take arguments representing the required dependencies to create an instance of that injectable and return a single value, the actual instance. Here is an example:</p>
 
@@ -53,7 +50,7 @@
 <div class="highlight highlight-go"><pre><span class="pl-c">// Get an instance of katana's injector</span>
 <span class="pl-smi">injector</span> <span class="pl-k">:=</span> katana.<span class="pl-c1">New</span>()
 
-<span class="pl-c">// Register the provider of *UserService with the injector</span>
+<span class="pl-c">// Register a constructor function to provide instances of *UserService</span>
 injector.<span class="pl-c1">ProvideNew</span>(&amp;UserService{}, <span class="pl-v">NewUserService</span>)
 
 <span class="pl-c">// Grab a new instance of *UserService with all its dependencies injected</span>
@@ -86,32 +83,30 @@ injector.<span class="pl-c1">Resolve</span>(&amp;service)</pre></div>
     <span class="pl-v">Datastore</span> *Datastore
 }</pre></div>
 
-<p>A provider for each type of injectable is created and registered with a new instance of <code>katana.Injector</code></p>
+<p>A constructor function for each type of injectable is created and registered with a new instance of <code>katana.Injector</code></p>
 
 <div class="highlight highlight-go"><pre><span class="pl-c">// Grabs a new instance of katana.Injector</span>
 <span class="pl-smi">injector</span> <span class="pl-k">:=</span> katana.<span class="pl-c1">New</span>()
 
-<span class="pl-c">// Registers a provider for config. Katana will resolve dependencies on Config by</span>
-<span class="pl-c">// setting them to this particular instance.</span>
+<span class="pl-c">// Registers the given instance of Config to be provided as a singleton injectable</span>
 injector.<span class="pl-c1">Provide</span>(Config{
     <span class="pl-v">DatastoreURL</span>: <span class="pl-s"><span class="pl-pds">"</span>https://myawesomestartup.com/db<span class="pl-pds">"</span></span>,
     <span class="pl-v">CacheTTL</span>:     <span class="pl-c1">20000</span>,
 })
 
-<span class="pl-c">// Registers a provider for *Cache whose result is never cached, which means</span>
-<span class="pl-c">// different requests for an instance of *Cache will yield different instances.</span>
+<span class="pl-c">// Registers a constructor function that always provides a new instance of *Cache</span>
 injector.<span class="pl-c1">ProvideNew</span>(&amp;Cache{}, <span class="pl-c1">func</span>(config <span class="pl-v">Config</span>) *Cache {
     <span class="pl-k">return</span> &amp;Cache{config.<span class="pl-smi">CacheTTL</span>}
 })
 
-<span class="pl-c">// Registers a provider for *Datastore with all its dependencies (Config, *Cache)</span>
-<span class="pl-c">// being resolved and injected into the provider function.</span>
+<span class="pl-c">// Registers a constructor function that always provides a new instance of *Datastore</span>
+<span class="pl-c">// resolving its dependencies -- Config and *Cache -- as part of the process</span>
 injector.<span class="pl-c1">ProvideNew</span>(&amp;Datastore{}, <span class="pl-c1">func</span>(config <span class="pl-v">Config</span>, cache *Cache) *Datastore {
     <span class="pl-k">return</span> &amp;Datastore{cache, config.<span class="pl-smi">DatastoreURL</span>}
 })
 
-<span class="pl-c">// Registers a singleton provider for *AccountService. The instance provided by</span>
-<span class="pl-c">// a singleton provider is cached so further requests yield the same result.</span>
+<span class="pl-c">// Registers a constructor function that always provides the same instance of *AccountService</span>
+<span class="pl-c">// resolving its dependencies -- *Datastore -- as part of the process</span>
 injector.<span class="pl-c1">ProvideSingleton</span>(&amp;AccountService{}, <span class="pl-c1">func</span>(db *Datastore) *AccountService {
     <span class="pl-k">return</span> &amp;AccountService{db}
 })</pre></div>
@@ -190,18 +185,25 @@ log.<span class="pl-c1">Fatal</span>(http.<span class="pl-c1">ListenAndServe</sp
 <p>The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.</p>
 
 <p>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p>
-      </section>
+        </section>
+
+        <aside id="sidebar">
+          <a href="https://github.com/drborges/katana/zipball/master" class="button">
+            <small>Download</small>
+            .zip file
+          </a>
+          <a href="https://github.com/drborges/katana/tarball/master" class="button">
+            <small>Download</small>
+            .tar.gz file
+          </a>
+
+          <p class="repo-owner"><a href="https://github.com/drborges/katana"></a> is maintained by <a href="https://github.com/drborges">drborges</a>.</p>
+
+          <p>This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
+        </aside>
+      </div>
     </div>
 
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">Katana maintained by <a href="https://github.com/drborges">drborges</a></p>
-        <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
-      </footer>
-    </div>
-
-    
-
+  
   </body>
 </html>
