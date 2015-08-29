@@ -19,7 +19,8 @@ clean:
 	@go clean
 
 update:
-	@go get -u -f github.com/smartystreets/goconvey/convey
+	@go get github.com/smartystreets/goconvey/convey
+	@go get github.com/smartystreets/assertions
 
 rm-local-branches:
 	@git branch | grep -v master | xargs -I {} git branch -D {}
