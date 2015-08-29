@@ -1,6 +1,6 @@
-# Katana
+# Katana [![Build Status](https://travis-ci.org/drborges/katana.svg?branch=master)](https://travis-ci.org/drborges/katana)
 
-Dependency Injection package driven by provider functions
+Dependency Injection Driven By Provider Functions
 
 ## Brief Overview
 
@@ -30,7 +30,7 @@ injector.Resolve(&service)
 
 Katana will detect and panic upon any eventual `cyclic dependency` when resolving an injectable, providing the cyclic dependency graph so you can easily troubleshoot.
 
-## Some More Examples
+## Example
 
 Lets say you have the following types each with their own dependencies:
 
@@ -105,7 +105,7 @@ var config Config
 injector.Resolve(&service1, &service2, &db1, &db2, &cache1, &cache2, &config)
 ```
 
-# Thread-safety
+# Thread-Safety
 
 In order to use `katana` in a `multi-thread` environment you should use a copy of the injector per thread.
 
@@ -113,7 +113,7 @@ Copies of `katana.Injector` can be created using `Injector.Clone()`. This copy w
 
 **Note** Singleton providers will still yield the same instances across different threads.
 
-### Example: HTTP server
+### Example: HTTP Server
 
 Assuming we have the injector instance from the example above ^
 
@@ -146,3 +146,7 @@ if result := fetchAllAccounts(); !result.Empty() {
 	accounts, err := result[0], result[1]
 }
 ```
+
+# Contributing
+
+# License
