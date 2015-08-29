@@ -6,8 +6,6 @@ Dependency Injection Driven By Constructor Functions
 
 katana approaches DI in a fairly simple manner. For each type that needs to be available for injection -- a.k.a `injectable` -- a [constructor function](https://golang.org/doc/effective_go.html#composite_literals) needs to be registered with an instance of `kanata.Injector`.
 
-Provider functions are like [constructor functions](https://golang.org/doc/effective_go.html#composite_literals), they may take arguments representing the required dependencies to create an instance of that injectable and return a single value, the actual instance. Here is an example:
-
 ```go
 func NewUserService(depA *DependencyA, depB *DependencyB) *UserService {
 	return &UserService{depA, depB}
@@ -20,8 +18,11 @@ Once a provider is registered the corresponding injectable can be resolved and i
 // Get an instance of katana's injector
 injector := katana.New()
 
+// Register the following instances as injectables
+depA, depB := &DependencyA{}, &DependencyB{}
+
 // Register a constructor function to provide instances of *UserService
-injector.ProvideNew(&UserService{}, NewUserService)
+injector.Provide(depA, depB).ProvideNew(&UserService{}, NewUserService)
 
 // Grab a new instance of *UserService with all its dependencies injected
 var service *UserService
@@ -78,8 +79,8 @@ injector.ProvideNew(&Datastore{}, func(config Config, cache *Cache) *Datastore {
 	return &Datastore{cache, config.DatastoreURL}
 })
 
-// Registers a constructor function that always provides the same instance of *AccountService
-// resolving its dependencies -- *Datastore -- as part of the process
+// Registers a constructor function that lazily provides the same instance of *AccountService
+// resolving its dependencies -- *Datastore -- as part of the process.
 injector.ProvideSingleton(&AccountService{}, func(db *Datastore) *AccountService {
 	return &AccountService{db}
 })
@@ -162,3 +163,4 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
