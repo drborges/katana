@@ -63,6 +63,25 @@ func TestKatanaProvide(t *testing.T) {
 	})
 }
 
+func TestKatanaProvideAs(t *testing.T) {
+	Convey("Given I have an instance of katana injector with an instance provided as an interface type", t, func() {
+		dep := &InterfaceDependencyImpl{}
+
+		injector := katana.New().ProvideAs((*InterfaceDependency)(nil), dep)
+
+		Convey("When I resolve a reference to the provided dependency", func() {
+			var depA InterfaceDependency
+
+			injector.Resolve(&depA)
+
+			Convey("Then the reference is successfully resolved", func() {
+				So(depA, should.NotBeNil)
+				So(depA, should.Equal, dep)
+			})
+		})
+	})
+}
+
 func TestKatanaProvideNewInstance(t *testing.T) {
 	Convey("Given I have an instance of katana injector with a new instance provider of a dependency", t, func() {
 		injector := katana.New().ProvideNew(&Dependency{}, func() *Dependency {

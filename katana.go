@@ -163,6 +163,16 @@ func (injector *Injector) Provide(instances ...interface{}) *Injector {
 	return injector
 }
 
+// ProvideAs is a short hand method that allows user defined instances to be injected as singletons
+// of a particular injectable type.
+//
+// Useful when providing a particular implementation of a given interface: Ex.:
+//
+// injector.ProvideAs((*http.ResponseWriter)(nil), w)
+func (injector *Injector) ProvideAs(injectable, instance interface{}) *Injector {
+	return injector.ProvideSingleton(injectable, func() interface{} { return instance })
+}
+
 // Resolve resolves type references into actual instances provided by their corresponding provider
 // functions if any.
 // Each reference MUST be a pointer to the requested type, even if the requested type is already a
