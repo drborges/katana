@@ -48,8 +48,11 @@
 <div class="highlight highlight-go"><pre><span class="pl-c">// Get an instance of katana's injector</span>
 <span class="pl-smi">injector</span> <span class="pl-k">:=</span> katana.<span class="pl-c1">New</span>()
 
+<span class="pl-c">// Register the following instances as injectables</span>
+<span class="pl-smi">depA</span>, <span class="pl-smi">depB</span> <span class="pl-k">:=</span> &amp;DependencyA{}, &amp;DependencyB{}
+
 <span class="pl-c">// Register a constructor function to provide instances of *UserService</span>
-injector.<span class="pl-c1">ProvideNew</span>(&amp;UserService{}, <span class="pl-v">NewUserService</span>)
+injector.<span class="pl-c1">Provide</span>(depA, depB).<span class="pl-c1">ProvideNew</span>(&amp;UserService{}, <span class="pl-v">NewUserService</span>)
 
 <span class="pl-c">// Grab a new instance of *UserService with all its dependencies injected</span>
 <span class="pl-k">var</span> <span class="pl-smi">service</span> *UserService
@@ -103,8 +106,8 @@ injector.<span class="pl-c1">ProvideNew</span>(&amp;Datastore{}, <span class="pl
     <span class="pl-k">return</span> &amp;Datastore{cache, config.<span class="pl-smi">DatastoreURL</span>}
 })
 
-<span class="pl-c">// Registers a constructor function that always provides the same instance of *AccountService</span>
-<span class="pl-c">// resolving its dependencies -- *Datastore -- as part of the process</span>
+<span class="pl-c">// Registers a constructor function that lazily provides the same instance of *AccountService</span>
+<span class="pl-c">// resolving its dependencies -- *Datastore -- as part of the process.</span>
 injector.<span class="pl-c1">ProvideSingleton</span>(&amp;AccountService{}, <span class="pl-c1">func</span>(db *Datastore) *AccountService {
     <span class="pl-k">return</span> &amp;AccountService{db}
 })</pre></div>
@@ -126,6 +129,23 @@ injector.<span class="pl-c1">ProvideSingleton</span>(&amp;AccountService{}, <spa
 injector.<span class="pl-c1">Resolve</span>(&amp;service1, &amp;service2, &amp;db1, &amp;db2, &amp;cache1, &amp;cache2, &amp;config)</pre></div>
 
 <h1>
+<a id="injecting-interfaces" class="anchor" href="#injecting-interfaces" aria-hidden="true"><span class="octicon octicon-link"></span></a>Injecting Interfaces</h1>
+
+<p>In Go there is no way to pass in types as function arguments and types are derived through reflection from actual instances.</p>
+
+<p>In addition to that an instance cannot be instantiated either, which makes things a little trick when writer generic programs like a DI container.</p>
+
+<p>Katana solution for injecting into interface references might seem a bit strange at first, but you'll get used :)</p>
+
+<p>Lets say we want to provide a particular implementation of <code>http.ResponseWriter</code> to be injected as dependency. With <code>katana</code> you would do the following:</p>
+
+<div class="highlight highlight-go"><pre>injector.<span class="pl-c1">ProvideAs</span>((*http.<span class="pl-smi">ResponseWriter</span>)(<span class="pl-c1">nil</span>), writer)</pre></div>
+
+<p><code>(*http.ResponseWriter)(nil)</code> is how we tell katana to treat <code>writer</code> as a <code>http.ResponseWriter</code> rather than its actual underlying implementation <code>*http.response</code>.</p>
+
+<p>With that whenever a dependency to <code>http.ResponseWriter</code> is detected, it will be resolved as that particular <code>writer</code> instance.</p>
+
+<h1>
 <a id="thread-safety" class="anchor" href="#thread-safety" aria-hidden="true"><span class="octicon octicon-link"></span></a>Thread-Safety</h1>
 
 <p>In order to use <code>katana</code> in a <code>multi-thread</code> environment you should use a copy of the injector per thread.</p>
@@ -141,7 +161,9 @@ injector.<span class="pl-c1">Resolve</span>(&amp;service1, &amp;service2, &amp;d
 
 <div class="highlight highlight-go"><pre>http.<span class="pl-c1">HandleFunc</span>(<span class="pl-s"><span class="pl-pds">"</span>/bar<span class="pl-pds">"</span></span>, <span class="pl-c1">func</span>(w http.<span class="pl-smi">ResponseWriter</span>, r *http.<span class="pl-smi">Request</span>) {
     <span class="pl-k">var</span> <span class="pl-smi">service</span> *AccountService
-    injector.<span class="pl-c1">Clone</span>().<span class="pl-c1">Provide</span>(w, r).<span class="pl-c1">Resolve</span>(&amp;service)
+    injector.<span class="pl-c1">Clone</span>().
+        <span class="pl-c1">ProvideAs</span>((*http.<span class="pl-smi">ResponseWriter</span>)(<span class="pl-c1">nil</span>), w).
+        <span class="pl-c1">Provide</span>(r).<span class="pl-c1">Resolve</span>(&amp;service)
 })
 
 log.<span class="pl-c1">Fatal</span>(http.<span class="pl-c1">ListenAndServe</span>(<span class="pl-s"><span class="pl-pds">"</span>:8080<span class="pl-pds">"</span></span>, <span class="pl-c1">nil</span>))</pre></div>
