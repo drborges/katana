@@ -2,80 +2,63 @@ package katana_test
 
 import (
 	"github.com/drborges/katana"
-	"testing"
+	"fmt"
 )
 
 type Config struct {
 	DatastoreURL string
 	CacheTTL     int
-	// Omitted code
 }
 
 type Cache struct {
 	TTL int
-	// Omitted code
 }
 
 type Datastore struct {
 	Cache *Cache
 	URL   string
-	// Omitted code
 }
 
 type AccountService struct {
 	Datastore *Datastore
-	// Omitted code
 }
 
-func TestKatanaAPI(t *testing.T) {
+func ExampleKatanaAPI() {
+	// Grabs a new instance of katana.Injector
 	injector := katana.New()
 
-	config := Config{
+	// Registers the given instance of Config to be provided as a singleton injectable
+	injector.Provide(Config{
 		DatastoreURL: "https://myawesomestartup.com/db",
 		CacheTTL:     20000,
-	}
+	})
 
-	// Registers a provider for the given instance. This type of provider returns the same object
-	// in case of registering a pointer or a copy of the object in case of a value
-	injector.Provide(config)
-
+	// Registers a constructor function that always provides a new instance of *Cache
 	injector.ProvideNew(&Cache{}, func(config Config) *Cache {
 		return &Cache{config.CacheTTL}
 	})
 
-	// The provider below provides a new instance of *Datastore whenever it is requested.
-	//
-	// All datastore dependencies -- Config, *Cache -- are injected into the provider function
-	// when a client requests a new instance.
-	//
-	// Its resolved instance is never cached and subsequent resolution calls will always yield
-	// a new instance created by its provider function.
+	// Registers a constructor function that always provides a new instance of *Datastore
+	// resolving its dependencies -- Config and *Cache -- as part of the process
 	injector.ProvideNew(&Datastore{}, func(config Config, cache *Cache) *Datastore {
 		return &Datastore{cache, config.DatastoreURL}
 	})
 
-	// A singleton provider is called at most once and its resolved value is then cached so
-	// further requests yield the same result.
+	// Registers a constructor function that lazily provides the same instance of *AccountService
+	// resolving its dependencies -- *Datastore -- as part of the process.
 	injector.ProvideSingleton(&AccountService{}, func(db *Datastore) *AccountService {
 		return &AccountService{db}
 	})
 
 	var service1, service2 *AccountService
-
-	// service1 and service2 will hold the same value since the provider for *AccountService is a singleton
 	injector.Resolve(&service1, &service2)
 
-	// service dependencies resolved, enjoy! ;)
+	fmt.Println("service1 == service2:", service1 == service2)
+	fmt.Println("service1.Datastore.URL:", service1.Datastore.URL)
+	fmt.Println("service1.Datastore.Cache.TTL:", service1.Datastore.Cache.TTL)
 
-	if service1 != service2 {
-		t.Fatalf("Expected %+v == %+v", service1, service2)
-	}
-
-	if service1.Datastore.URL != config.DatastoreURL {
-		t.Fatalf("Expected datastore URL to be %v. Got %+v", config.DatastoreURL, service1.Datastore.URL)
-	}
-
-	if service1.Datastore.Cache.TTL != config.CacheTTL {
-		t.Fatalf("Expected cache TTL to be %v. Got %+v", config.CacheTTL, service1.Datastore.Cache.TTL)
-	}
+	// Output:
+	// service1 == service2: true
+	// service1.Datastore.URL: https://myawesomestartup.com/db
+	// service1.Datastore.Cache.TTL: 20000
 }
