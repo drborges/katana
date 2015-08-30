@@ -104,6 +104,24 @@ var config Config
 injector.Resolve(&service1, &service2, &db1, &db2, &cache1, &cache2, &config)
 ```
 
+# Injecting Interfaces
+
+In Go there is no way to pass in types as function arguments and types are derived through reflection from actual instances.
+
+In addition to that an interface cannot be instantiated either, which makes things a little trick when writing generic code like a DI container.
+
+Katana solution for injecting into interface references might seem a bit strange at first, but you'll get used :)
+
+Lets say we want to provide a particular implementation of `http.ResponseWriter` to be injected as dependency. With `katana` you would do the following:
+
+```go
+injector.ProvideAs((*http.ResponseWriter)(nil), writer)
+```
+
+`(*http.ResponseWriter)(nil)` is how we tell katana to treat `writer` as a `http.ResponseWriter` rather than its actual underlying implementation `*http.response`.
+
+With that whenever a dependency to `http.ResponseWriter` is detected, it will be resolved as that particular `writer` instance.
+
 # Thread-Safety
 
 In order to use `katana` in a `multi-thread` environment you should use a copy of the injector per thread.
@@ -119,7 +137,9 @@ Assuming we have the injector instance from the example above ^
 ```go
 http.HandleFunc("/bar", func(w http.ResponseWriter, r *http.Request) {
 	var service *AccountService
-	injector.Clone().Provide(w, r).Resolve(&service)
+	injector.Clone().
+		ProvideAs((*http.ResponseWriter)(nil), w).
+		Provide(r).Resolve(&service)
 })
 
 log.Fatal(http.ListenAndServe(":8080", nil))
