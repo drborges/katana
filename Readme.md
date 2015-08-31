@@ -1,4 +1,6 @@
-# Katana [![Build Status](https://travis-ci.org/drborges/katana.svg?branch=master)](https://travis-ci.org/drborges/katana)
+# Katana
+
+[![Build Status](https://travis-ci.org/drborges/katana.svg?branch=master)](https://travis-ci.org/drborges/katana)
 
 Dependency Injection Driven By Constructor Functions
 
