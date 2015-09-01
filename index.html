@@ -29,8 +29,9 @@
       <div class="inner clearfix">
         <section id="main-content">
           <h1>
-<a id="katana-" class="anchor" href="#katana-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Katana <a href="https://travis-ci.org/drborges/katana"><img src="https://travis-ci.org/drborges/katana.svg?branch=master" alt="Build Status"></a>
-</h1>
+<a id="katana" class="anchor" href="#katana" aria-hidden="true"><span class="octicon octicon-link"></span></a>Katana</h1>
+
+<p><a href="https://travis-ci.org/drborges/katana"><img src="https://travis-ci.org/drborges/katana.svg?branch=master" alt="Build Status"></a></p>
 
 <p>Dependency Injection Driven By Constructor Functions</p>
 
@@ -133,7 +134,7 @@ injector.<span class="pl-c1">Resolve</span>(&amp;service1, &amp;service2, &amp;d
 
 <p>In Go there is no way to pass in types as function arguments and types are derived through reflection from actual instances.</p>
 
-<p>In addition to that an instance cannot be instantiated either, which makes things a little trick when writer generic programs like a DI container.</p>
+<p>In addition to that an interface cannot be instantiated either, which makes things a little trick when writing generic code like a DI container.</p>
 
 <p>Katana solution for injecting into interface references might seem a bit strange at first, but you'll get used :)</p>
 
