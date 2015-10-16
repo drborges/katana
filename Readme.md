@@ -4,6 +4,8 @@
 
 Dependency Injection Driven By Constructor Functions
 
+Hi cookies
+
 ## Brief Overview
 
 katana approaches DI in a fairly simple manner. For each type that needs to be available for injection -- a.k.a `injectable` -- a [constructor function](https://golang.org/doc/effective_go.html#composite_literals) needs to be registered with an instance of `kanata.Injector`.
